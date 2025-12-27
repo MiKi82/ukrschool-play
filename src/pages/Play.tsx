@@ -30,6 +30,7 @@ interface StudentWithClass {
   id: string;
   nickname: string;
   avatar_emoji: string;
+  photo_url: string | null;
   class_group_id: string | null;
   class_groups?: { name: string; grade: number } | null;
 }
@@ -146,7 +147,17 @@ const PlayPage = () => {
                     className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all"
                     onClick={() => setSelectedStudent(student as StudentWithClass)}
                   >
-                    <div className="text-5xl mb-3">{student.avatar_emoji}</div>
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {student.photo_url ? (
+                        <img 
+                          src={student.photo_url} 
+                          alt={student.nickname} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-4xl">{student.avatar_emoji}</span>
+                      )}
+                    </div>
                     <h3 className="text-lg font-bold text-foreground">{student.nickname}</h3>
                     {student.class_groups && (
                       <p className="text-sm text-muted-foreground mt-1">
@@ -164,7 +175,17 @@ const PlayPage = () => {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl">{selectedStudent.avatar_emoji}</span>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    {selectedStudent.photo_url ? (
+                      <img 
+                        src={selectedStudent.photo_url} 
+                        alt={selectedStudent.nickname} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl">{selectedStudent.avatar_emoji}</span>
+                    )}
+                  </div>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
                       Вітаємо, {selectedStudent.nickname}!
