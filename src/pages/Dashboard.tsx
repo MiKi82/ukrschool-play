@@ -4,18 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { 
   GraduationCap, Home, Users, BookOpen, BarChart3, Settings,
-  Plus, Play, CheckCircle2, Menu, X, LogOut, Loader2
+  Plus, Play, CheckCircle2, Menu, X, LogOut, Loader2, FileText
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useExercises, DbExercise } from '@/hooks/useExercises';
 import { useClasses } from '@/hooks/useClasses';
 import { useAllStudents } from '@/hooks/useStudentProgress';
+import { useLessons } from '@/hooks/useLessons';
 import ClassesManager from '@/components/ClassesManager';
 import StudentProgressTracker from '@/components/StudentProgressTracker';
 import LibraryView from '@/components/LibraryView';
 import LessonBuilder from '@/components/LessonBuilder';
+import LessonsView from '@/components/LessonsView';
 
-type SidebarItem = 'dashboard' | 'classes' | 'library' | 'analytics' | 'settings';
+type SidebarItem = 'dashboard' | 'classes' | 'library' | 'lessons' | 'analytics' | 'settings';
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -30,6 +32,7 @@ const Dashboard = () => {
   const { data: exercises = [] } = useExercises();
   const { data: classes = [] } = useClasses();
   const { data: allStudents = [] } = useAllStudents();
+  const { data: lessons = [] } = useLessons();
   
   const totalStudents = allStudents.length;
 
@@ -43,6 +46,7 @@ const Dashboard = () => {
     { id: 'dashboard', label: 'Головна', icon: <Home className="h-5 w-5" /> },
     { id: 'classes', label: 'Класи', icon: <Users className="h-5 w-5" /> },
     { id: 'library', label: 'Бібліотека', icon: <BookOpen className="h-5 w-5" /> },
+    { id: 'lessons', label: 'Уроки', icon: <FileText className="h-5 w-5" /> },
     { id: 'analytics', label: 'Аналітика', icon: <BarChart3 className="h-5 w-5" /> },
     { id: 'settings', label: 'Налаштування', icon: <Settings className="h-5 w-5" /> },
   ];
@@ -145,12 +149,14 @@ const Dashboard = () => {
             <DashboardView 
               exercises={exercises} 
               classCount={classes.length} 
-              studentCount={totalStudents} 
+              studentCount={totalStudents}
+              lessonCount={lessons.length}
               onNavigate={(view) => setActiveItem(view)} 
             />
           )}
           {activeItem === 'classes' && <ClassesManager />}
           {activeItem === 'library' && <LibraryView onOpenLessonBuilder={handleOpenLessonBuilder} />}
+          {activeItem === 'lessons' && <LessonsView />}
           {activeItem === 'analytics' && <StudentProgressTracker />}
           {activeItem === 'settings' && <SettingsView />}
         </div>
@@ -173,8 +179,9 @@ const DashboardView: React.FC<{
   exercises: DbExercise[]; 
   classCount: number; 
   studentCount: number;
-  onNavigate: (view: 'classes' | 'library' | 'analytics') => void;
-}> = ({ exercises, classCount, studentCount, onNavigate }) => (
+  lessonCount: number;
+  onNavigate: (view: 'classes' | 'library' | 'lessons' | 'analytics') => void;
+}> = ({ exercises, classCount, studentCount, lessonCount, onNavigate }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card 
@@ -222,6 +229,21 @@ const DashboardView: React.FC<{
         </div>
       </Card>
       
+      <Card 
+        className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+        onClick={() => onNavigate('lessons')}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+            <FileText className="h-6 w-6 text-accent-foreground" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Уроки</p>
+            <p className="text-2xl font-bold text-foreground">{lessonCount}</p>
+          </div>
+        </div>
+      </Card>
+
       <Card 
         className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
         onClick={() => onNavigate('analytics')}
