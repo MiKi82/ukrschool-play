@@ -98,6 +98,9 @@ const GamePage = () => {
             <Button size="lg" variant="outline" onClick={() => navigate('/play')}>
               Обрати іншу гру
             </Button>
+            <Button size="lg" variant="ghost" onClick={() => navigate(-1)}>
+              Повернутися назад
+            </Button>
           </div>
         </Card>
       </div>
