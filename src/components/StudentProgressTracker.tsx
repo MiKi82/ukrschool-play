@@ -18,10 +18,13 @@ import {
   Loader2,
   User,
   Star,
+  Award,
 } from 'lucide-react';
-import { useClasses, useStudentsByClass, StudentProfile } from '@/hooks/useClasses';
-import { useStudentProgress, useStudentResults } from '@/hooks/useStudentProgress';
+import { useClasses, useStudentsByClass } from '@/hooks/useClasses';
+import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { useSubjects } from '@/hooks/useExercises';
+import { useAchievements, useStudentAchievements } from '@/hooks/useAchievements';
+import { AchievementBadge } from '@/components/AchievementBadge';
 
 const difficultyLabels: Record<string, string> = {
   EASY: 'Легко',
@@ -37,9 +40,17 @@ const StudentProgressTracker: React.FC = () => {
   const { data: classes = [], isLoading: classesLoading } = useClasses();
   const { data: students = [], isLoading: studentsLoading } = useStudentsByClass(selectedClassId);
   const { data: subjects = [] } = useSubjects();
+  const { data: allAchievements = [] } = useAchievements();
+  const { data: studentAchievements = [] } = useStudentAchievements(selectedStudentId);
   const { progress, results, isLoading: progressLoading } = useStudentProgress(selectedStudentId);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
+
+  const earnedAchievementIds = new Set(studentAchievements.map(a => a.achievement_id));
+  const totalPoints = studentAchievements.reduce(
+    (acc, sa) => acc + (sa.achievements?.points || 0),
+    0
+  );
 
   const filteredResults = selectedSubjectId
     ? results.filter(r => r.exercises?.subject_id === selectedSubjectId)
@@ -221,7 +232,48 @@ const StudentProgressTracker: React.FC = () => {
                 </Card>
               </div>
 
-              {/* Progress by Subject */}
+              {/* Achievements Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-5 w-5" />
+                      Нагороди
+                    </div>
+                    <Badge variant="secondary" className="text-lg">
+                      {totalPoints} балів
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3">
+                    {allAchievements.map((achievement) => {
+                      const earned = earnedAchievementIds.has(achievement.id);
+                      const studentAchievement = studentAchievements.find(
+                        sa => sa.achievement_id === achievement.id
+                      );
+                      return (
+                        <AchievementBadge
+                          key={achievement.id}
+                          icon={achievement.icon}
+                          name={achievement.name}
+                          description={achievement.description}
+                          points={achievement.points}
+                          earned={earned}
+                          earnedAt={studentAchievement?.earned_at}
+                          size="md"
+                        />
+                      );
+                    })}
+                  </div>
+                  {studentAchievements.length === 0 && (
+                    <p className="text-muted-foreground text-center py-4 mt-4 border-t">
+                      Ще немає нагород. Виконуйте вправи, щоб отримати нагороди!
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {!selectedSubjectId && Object.keys(progress.bySubject).length > 0 && (
                 <Card>
                   <CardHeader>

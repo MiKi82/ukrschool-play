@@ -5,8 +5,10 @@ import { Card } from '@/components/ui/card';
 import { GraduationCap, ArrowLeft, Trophy, Star, Loader2 } from 'lucide-react';
 import { useExercise } from '@/hooks/useExercises';
 import { useSaveResult } from '@/hooks/useResults';
+import { useCheckAndAwardAchievements, Achievement } from '@/hooks/useAchievements';
 import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer } from '@/components/games';
 import { MatchingPair, QuizQuestion, DragDropItem, DragDropZone } from '@/types';
+import { AchievementNotification } from '@/components/AchievementNotification';
 import { toast } from 'sonner';
 
 const GamePage = () => {
@@ -15,9 +17,11 @@ const GamePage = () => {
   const studentId = searchParams.get('student');
   const navigate = useNavigate();
   const [gameResult, setGameResult] = useState<{ score: number; timeSpent: number } | null>(null);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
 
   const { data: exercise, isLoading, error } = useExercise(exerciseId || '');
   const saveResult = useSaveResult();
+  const checkAchievements = useCheckAndAwardAchievements();
 
   const handleComplete = useCallback((score: number, timeSpent: number) => {
     setGameResult({ score, timeSpent });
@@ -34,13 +38,24 @@ const GamePage = () => {
       }, {
         onSuccess: () => {
           toast.success('Результат збережено!');
+          // Check for new achievements
+          checkAchievements.mutate(
+            { studentId, score, timeSpent },
+            {
+              onSuccess: (achievements) => {
+                if (achievements.length > 0) {
+                  setNewAchievements(achievements);
+                }
+              },
+            }
+          );
         },
         onError: () => {
           toast.error('Не вдалося зберегти результат');
         }
       });
     }
-  }, [studentId, exerciseId, saveResult]);
+  }, [studentId, exerciseId, saveResult, checkAchievements]);
 
   if (isLoading) {
     return (
@@ -67,6 +82,14 @@ const GamePage = () => {
     const stars = Math.ceil(gameResult.score / 20);
     return (
       <div className="min-h-screen bg-gradient-to-b from-secondary/20 via-primary/10 to-background flex items-center justify-center p-4">
+        {/* Achievement Notification */}
+        {newAchievements.length > 0 && (
+          <AchievementNotification
+            achievements={newAchievements}
+            onComplete={() => setNewAchievements([])}
+          />
+        )}
+
         <Card className="max-w-md w-full p-8 text-center">
           <Trophy className="h-20 w-20 text-secondary mx-auto mb-4 animate-bounce" />
           <h1 className="text-3xl font-bold text-foreground mb-2">

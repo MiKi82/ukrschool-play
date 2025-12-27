@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          points: number
+          requirement_type: string
+          requirement_value: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          points?: number
+          requirement_type: string
+          requirement_value?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          points?: number
+          requirement_type?: string
+          requirement_value?: number
+        }
+        Relationships: []
+      }
       assignment_results: {
         Row: {
           assignment_id: string
@@ -306,6 +342,42 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      student_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_achievements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_profiles: {
         Row: {
