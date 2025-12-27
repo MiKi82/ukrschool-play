@@ -92,32 +92,37 @@ const PlayPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-secondary/10">
       {/* Header */}
-      <header className="py-4 px-4 border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-primary-foreground" />
+      <header className="py-3 sm:py-4 px-3 sm:px-4 border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto flex items-center justify-between gap-2">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary flex items-center justify-center">
+              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-extrabold text-primary">УкрШкола</span>
+            <span className="text-lg sm:text-xl font-extrabold text-primary">УкрШкола</span>
           </Link>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="hidden sm:flex">
             <Link to="/dashboard">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Меню вчителя
             </Link>
           </Button>
+          <Button variant="outline" size="icon" asChild className="sm:hidden h-8 w-8">
+            <Link to="/dashboard">
+              <LayoutDashboard className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Student Selection */}
         {!selectedStudent ? (
           <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-extrabold text-foreground mb-2">
+            <div className="text-center mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground mb-2">
                 Привіт! 👋
               </h1>
-              <p className="text-xl text-muted-foreground">
+              <p className="text-base sm:text-xl text-muted-foreground">
                 Хто буде грати сьогодні?
               </p>
             </div>
@@ -172,10 +177,10 @@ const PlayPage = () => {
         ) : (
           <>
             {/* Welcome & Subject Selection */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
+            <div className="mb-6 sm:mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                     {selectedStudent.photo_url ? (
                       <img 
                         src={selectedStudent.photo_url} 
@@ -183,46 +188,47 @@ const PlayPage = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-3xl">{selectedStudent.avatar_emoji}</span>
+                      <span className="text-2xl sm:text-3xl">{selectedStudent.avatar_emoji}</span>
                     )}
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-foreground">
+                  <div className="min-w-0">
+                    <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate">
                       Вітаємо, {selectedStudent.nickname}!
                     </h1>
-                    <p className="text-muted-foreground">Обери предмет та почни грати</p>
+                    <p className="text-sm sm:text-base text-muted-foreground">Обери предмет та почни грати</p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(null)}>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(null)} className="self-start sm:self-center">
                   Змінити гравця
                 </Button>
               </div>
 
               {/* Subject Pills */}
-              <div className="flex flex-wrap gap-3 mb-6">
+              <div className="flex flex-wrap gap-2 sm:gap-3 mb-6 overflow-x-auto pb-2">
                 <Button
                   variant={selectedSubject === null ? "default" : "outline"}
-                  size="lg"
+                  size="default"
                   onClick={() => setSelectedSubject(null)}
-                  className="rounded-full"
+                  className="rounded-full shrink-0 text-sm sm:text-base"
                 >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Всі предмети
+                  <Sparkles className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Всі
                 </Button>
                 {subjects.map(subject => (
                   <Button
                     key={subject.id}
                     variant={selectedSubject === subject.id ? "default" : "outline"}
-                    size="lg"
+                    size="default"
                     onClick={() => setSelectedSubject(subject.id)}
-                    className="rounded-full"
+                    className="rounded-full shrink-0 text-sm sm:text-base"
                   >
                     {subject.name === 'Математика' ? (
-                      <Calculator className="mr-2 h-5 w-5" />
+                      <Calculator className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     ) : (
-                      <BookOpen className="mr-2 h-5 w-5" />
+                      <BookOpen className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     )}
-                    {subject.name}
+                    <span className="hidden xs:inline">{subject.name}</span>
+                    <span className="xs:hidden">{subject.name.slice(0, 4)}.</span>
                   </Button>
                 ))}
               </div>
