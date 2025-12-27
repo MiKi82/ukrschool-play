@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
 import { useAllStudents } from '@/hooks/useStudentProgress';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/PullToRefresh';
+import { useQueryClient } from '@tanstack/react-query';
 
 const difficultyLabels: Record<string, string> = {
   EASY: 'Легко',
@@ -40,12 +43,25 @@ const PlayPage = () => {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<DbExercise | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const { data: allStudents = [], isLoading: studentsLoading } = useAllStudents();
-  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
-  const { data: exercises = [], isLoading: exercisesLoading } = useExercises(
+  const { data: allStudents = [], isLoading: studentsLoading, refetch: refetchStudents } = useAllStudents();
+  const { data: subjects = [], isLoading: subjectsLoading, refetch: refetchSubjects } = useSubjects();
+  const { data: exercises = [], isLoading: exercisesLoading, refetch: refetchExercises } = useExercises(
     selectedSubject ? { subjectId: selectedSubject } : undefined
   );
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      refetchStudents(),
+      refetchSubjects(),
+      refetchExercises(),
+    ]);
+  }, [refetchStudents, refetchSubjects, refetchExercises]);
+
+  const { containerRef, pullDistance, isRefreshing, threshold } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   const isLoading = subjectsLoading || exercisesLoading || studentsLoading;
 
@@ -90,7 +106,7 @@ const PlayPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-secondary/10">
+    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-secondary/10 flex flex-col">
       {/* Header */}
       <header className="py-3 sm:py-4 px-3 sm:px-4 border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between gap-2">
@@ -114,23 +130,34 @@ const PlayPage = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        {/* Student Selection */}
-        {!selectedStudent ? (
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-6 sm:mb-8">
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground mb-2">
-                Привіт! 👋
-              </h1>
-              <p className="text-base sm:text-xl text-muted-foreground">
-                Хто буде грати сьогодні?
-              </p>
-            </div>
-
-            {studentsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div 
+        ref={containerRef} 
+        className="flex-1 overflow-y-auto"
+        style={{ touchAction: 'pan-y' }}
+      >
+        <PullToRefreshIndicator 
+          pullDistance={pullDistance} 
+          isRefreshing={isRefreshing} 
+          threshold={threshold} 
+        />
+        
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          {/* Student Selection */}
+          {!selectedStudent ? (
+            <div className="max-w-3xl mx-auto">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground mb-2">
+                  Привіт! 👋
+                </h1>
+                <p className="text-base sm:text-xl text-muted-foreground">
+                  Хто буде грати сьогодні?
+                </p>
               </div>
+
+              {studentsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
             ) : allStudents.length === 0 ? (
               <Card className="p-8 text-center">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -322,7 +349,8 @@ const PlayPage = () => {
             )}
           </>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
