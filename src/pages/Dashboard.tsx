@@ -151,7 +151,7 @@ const Dashboard = () => {
         </header>
 
         <div className="p-4 sm:p-6">
-          {activeItem === 'dashboard' && <DashboardView exercises={exercises} classCount={classes.length} studentCount={totalStudents} />}
+          {activeItem === 'dashboard' && <DashboardView exercises={exercises} classCount={classes.length} studentCount={totalStudents} onNavigate={(view) => setActiveItem(view)} />}
           {activeItem === 'classes' && <ClassesView />}
           {activeItem === 'library' && <LibraryView exercises={exercises} subjects={subjects} selectedSubject={selectedSubject} onSubjectChange={setSelectedSubject} isLoading={exercisesLoading} />}
           {activeItem === 'analytics' && <AnalyticsView />}
@@ -162,13 +162,73 @@ const Dashboard = () => {
   );
 };
 
-const DashboardView: React.FC<{ exercises: DbExercise[]; classCount: number; studentCount: number }> = ({ exercises, classCount, studentCount }) => (
+const DashboardView: React.FC<{ 
+  exercises: DbExercise[]; 
+  classCount: number; 
+  studentCount: number;
+  onNavigate: (view: 'classes' | 'library' | 'analytics') => void;
+}> = ({ exercises, classCount, studentCount, onNavigate }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><Users className="h-6 w-6 text-primary" /></div><div><p className="text-sm text-muted-foreground">Класи</p><p className="text-2xl font-bold text-foreground">{classCount}</p></div></div></Card>
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center"><GraduationCap className="h-6 w-6 text-secondary" /></div><div><p className="text-sm text-muted-foreground">Учні</p><p className="text-2xl font-bold text-foreground">{studentCount}</p></div></div></Card>
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><BookOpen className="h-6 w-6 text-primary" /></div><div><p className="text-sm text-muted-foreground">Вправи</p><p className="text-2xl font-bold text-foreground">{exercises.length}</p></div></div></Card>
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center"><CheckCircle2 className="h-6 w-6 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Виконано сьогодні</p><p className="text-2xl font-bold text-foreground">0</p></div></div></Card>
+      <Card 
+        className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+        onClick={() => onNavigate('classes')}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Класи</p>
+            <p className="text-2xl font-bold text-foreground">{classCount}</p>
+          </div>
+        </div>
+      </Card>
+      
+      <Card 
+        className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+        onClick={() => onNavigate('classes')}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center">
+            <GraduationCap className="h-6 w-6 text-secondary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Учні</p>
+            <p className="text-2xl font-bold text-foreground">{studentCount}</p>
+          </div>
+        </div>
+      </Card>
+      
+      <Card 
+        className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+        onClick={() => onNavigate('library')}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <BookOpen className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Вправи</p>
+            <p className="text-2xl font-bold text-foreground">{exercises.length}</p>
+          </div>
+        </div>
+      </Card>
+      
+      <Card 
+        className="p-5 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+        onClick={() => onNavigate('analytics')}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+            <CheckCircle2 className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Аналітика</p>
+            <p className="text-2xl font-bold text-foreground">→</p>
+          </div>
+        </div>
+      </Card>
     </div>
   </div>
 );
