@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { GraduationCap, ArrowLeft, Trophy, Star, Loader2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Trophy, Star, Loader2, LayoutDashboard } from 'lucide-react';
 import { useExercise } from '@/hooks/useExercises';
 import { useSaveResult } from '@/hooks/useResults';
 import { useCheckAndAwardAchievements, Achievement } from '@/hooks/useAchievements';
@@ -34,7 +34,7 @@ const GamePage = () => {
         score,
         maxScore: 100,
         timeSpent,
-        mistakes: Math.max(0, 100 - score) / 10,
+        mistakes: Math.round(Math.max(0, 100 - score) / 10),
       }, {
         onSuccess: () => {
           toast.success('Результат збережено!');
@@ -121,6 +121,10 @@ const GamePage = () => {
             <Button size="lg" variant="outline" onClick={() => navigate('/play')}>
               Обрати іншу гру
             </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate('/dashboard')}>
+              <LayoutDashboard className="mr-2 h-5 w-5" />
+              Меню вчителя
+            </Button>
             <Button size="lg" variant="ghost" onClick={() => navigate(-1)}>
               Повернутися назад
             </Button>
@@ -147,12 +151,20 @@ const GamePage = () => {
               <span className="font-bold text-foreground">{exercise.title}</span>
             </div>
           </div>
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <GraduationCap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-primary hidden md:block">УкрШкола</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/dashboard">
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Меню вчителя</span>
+              </Link>
+            </Button>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <GraduationCap className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-primary hidden md:block">УкрШкола</span>
+            </Link>
+          </div>
         </div>
       </header>
 
