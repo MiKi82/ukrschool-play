@@ -11,7 +11,9 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
 import { useClasses, useStudentsByClass } from '@/hooks/useClasses';
+import { useAllStudents } from '@/hooks/useStudentProgress';
 import ClassesManager from '@/components/ClassesManager';
+import StudentProgressTracker from '@/components/StudentProgressTracker';
 
 type SidebarItem = 'dashboard' | 'classes' | 'library' | 'analytics' | 'settings';
 
@@ -44,9 +46,10 @@ const Dashboard = () => {
   );
   const { data: subjects = [] } = useSubjects();
   const { data: classes = [] } = useClasses();
+  const { data: allStudents = [] } = useAllStudents();
   
-  // Calculate total students across all classes
-  const totalStudents = classes.reduce((acc, cls) => acc, 0);
+  // Calculate total students
+  const totalStudents = allStudents.length;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -177,7 +180,7 @@ const LibraryView: React.FC<{ exercises: DbExercise[]; subjects: { id: string; n
   </div>
 );
 
-const AnalyticsView = () => (<div className="text-center py-20"><BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" /><h2 className="text-2xl font-bold text-foreground mb-2">Аналітика</h2><p className="text-muted-foreground">Статистика з'явиться після виконання завдань учнями.</p></div>);
+const AnalyticsView = () => <StudentProgressTracker />;
 const SettingsView = () => (<div className="text-center py-20"><Settings className="h-16 w-16 text-muted-foreground mx-auto mb-4" /><h2 className="text-2xl font-bold text-foreground mb-2">Налаштування</h2><p className="text-muted-foreground">Налаштування профілю та системи.</p></div>);
 
 export default Dashboard;
