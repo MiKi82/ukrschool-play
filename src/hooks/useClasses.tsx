@@ -15,6 +15,7 @@ export interface StudentProfile {
   id: string;
   nickname: string;
   avatar_emoji: string;
+  photo_url: string | null;
   class_group_id: string | null;
   parent_id: string | null;
   created_at: string;
@@ -125,10 +126,10 @@ export const useCreateStudent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ nickname, avatarEmoji, classGroupId }: { nickname: string; avatarEmoji: string; classGroupId: string }) => {
+    mutationFn: async ({ nickname, avatarEmoji, classGroupId, photoUrl }: { nickname: string; avatarEmoji: string; classGroupId: string; photoUrl?: string }) => {
       const { data, error } = await supabase
         .from('student_profiles')
-        .insert({ nickname, avatar_emoji: avatarEmoji, class_group_id: classGroupId })
+        .insert({ nickname, avatar_emoji: avatarEmoji, class_group_id: classGroupId, photo_url: photoUrl || null })
         .select()
         .single();
       
@@ -138,6 +139,7 @@ export const useCreateStudent = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['students', variables.classGroupId] });
       queryClient.invalidateQueries({ queryKey: ['classes'] });
+      queryClient.invalidateQueries({ queryKey: ['allStudents'] });
     },
   });
 };
@@ -146,10 +148,19 @@ export const useUpdateStudent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, nickname, avatarEmoji, classGroupId }: { id: string; nickname: string; avatarEmoji: string; classGroupId: string }) => {
+    mutationFn: async ({ id, nickname, avatarEmoji, classGroupId, photoUrl }: { id: string; nickname: string; avatarEmoji: string; classGroupId: string; photoUrl?: string | null }) => {
+      const updateData: { nickname: string; avatar_emoji: string; photo_url?: string | null } = { 
+        nickname, 
+        avatar_emoji: avatarEmoji 
+      };
+      
+      if (photoUrl !== undefined) {
+        updateData.photo_url = photoUrl;
+      }
+      
       const { data, error } = await supabase
         .from('student_profiles')
-        .update({ nickname, avatar_emoji: avatarEmoji })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -159,6 +170,7 @@ export const useUpdateStudent = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['students', variables.classGroupId] });
+      queryClient.invalidateQueries({ queryKey: ['allStudents'] });
     },
   });
 };

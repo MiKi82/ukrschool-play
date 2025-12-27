@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Users, ArrowLeft, Pencil, Trash2, Loader2, UserPlus } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Pencil, Trash2, Loader2, UserPlus, Upload, X, Camera } from 'lucide-react';
 import { useClasses, useStudentsByClass, useCreateClass, useUpdateClass, useDeleteClass, useCreateStudent, useUpdateStudent, useDeleteStudent, ClassGroup, StudentProfile } from '@/hooks/useClasses';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const AVATAR_EMOJIS = ['🧒', '👧', '👦', '👩', '🧑', '👨', '👶', '🧒🏻', '👧🏻', '👦🏻', '🧒🏽', '👧🏽', '👦🏽', '🧒🏿', '👧🏿', '👦🏿'];
@@ -281,8 +282,16 @@ const StudentCard: React.FC<{
   return (
     <Card className="p-4 group hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-          {student.avatar_emoji}
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
+          {student.photo_url ? (
+            <img 
+              src={student.photo_url} 
+              alt={student.nickname} 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            student.avatar_emoji
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground truncate">{student.nickname}</p>
@@ -308,6 +317,9 @@ const StudentDialog: React.FC<{
 }> = ({ isOpen, onClose, student, classGroupId }) => {
   const [nickname, setNickname] = useState('');
   const [avatarEmoji, setAvatarEmoji] = useState('🧒');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
 
@@ -315,11 +327,57 @@ const StudentDialog: React.FC<{
     if (student) {
       setNickname(student.nickname);
       setAvatarEmoji(student.avatar_emoji);
+      setPhotoUrl(student.photo_url);
     } else {
       setNickname('');
       setAvatarEmoji('🧒');
+      setPhotoUrl(null);
     }
   }, [student, isOpen]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Будь ласка, виберіть зображення');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Файл занадто великий (максимум 5MB)');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `students/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('student-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('student-photos')
+        .getPublicUrl(filePath);
+
+      setPhotoUrl(data.publicUrl);
+      toast.success('Фото завантажено');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Помилка завантаження фото');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setPhotoUrl(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,10 +385,10 @@ const StudentDialog: React.FC<{
 
     try {
       if (student) {
-        await updateStudent.mutateAsync({ id: student.id, nickname: nickname.trim(), avatarEmoji, classGroupId });
+        await updateStudent.mutateAsync({ id: student.id, nickname: nickname.trim(), avatarEmoji, classGroupId, photoUrl });
         toast.success('Учня оновлено');
       } else {
-        await createStudent.mutateAsync({ nickname: nickname.trim(), avatarEmoji, classGroupId });
+        await createStudent.mutateAsync({ nickname: nickname.trim(), avatarEmoji, classGroupId, photoUrl: photoUrl || undefined });
         toast.success('Учня додано');
       }
       onClose();
@@ -343,17 +401,68 @@ const StudentDialog: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{student ? 'Редагувати учня' : 'Новий учень'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Photo Upload */}
+          <div className="space-y-2">
+            <Label>Фото учня</Label>
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-dashed border-border">
+                {photoUrl ? (
+                  <>
+                    <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-3xl">{avatarEmoji}</span>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full"
+                >
+                  {uploading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="mr-2 h-4 w-4" />
+                  )}
+                  {photoUrl ? 'Змінити фото' : 'Завантажити фото'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Або виберіть аватар нижче
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="nickname">Ім'я або нікнейм</Label>
             <Input id="nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Наприклад: Максим" required />
           </div>
+          
           <div className="space-y-2">
-            <Label>Аватар</Label>
+            <Label>Аватар (якщо немає фото)</Label>
             <div className="flex flex-wrap gap-2">
               {AVATAR_EMOJIS.map(emoji => (
                 <button
@@ -367,9 +476,10 @@ const StudentDialog: React.FC<{
               ))}
             </div>
           </div>
+          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Скасувати</Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || uploading}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {student ? 'Зберегти' : 'Додати'}
             </Button>
