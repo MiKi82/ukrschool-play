@@ -7,13 +7,13 @@
 @layer base {
   :root {
     /* Ukrainian-themed educational palette - Blue/Yellow */
-    --background: 48 50% 97%;
+    --background: 210 30% 98%;
     --foreground: 220 40% 15%;
 
-    --card: 48 40% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 220 40% 15%;
 
-    --popover: 48 40% 99%;
+    --popover: 0 0% 100%;
     --popover-foreground: 220 40% 15%;
 
     /* Primary: Vibrant Blue */
@@ -22,21 +22,21 @@
     --primary-light: 217 91% 95%;
 
     /* Secondary: Sunny Yellow */
-    --secondary: 45 95% 55%;
-    --secondary-foreground: 45 100% 15%;
+    --secondary: 45 93% 58%;
+    --secondary-foreground: 45 100% 20%;
 
     /* Accent: Golden Yellow */
-    --accent: 42 100% 50%;
-    --accent-foreground: 42 100% 15%;
+    --accent: 45 93% 58%;
+    --accent-foreground: 45 100% 20%;
 
-    --muted: 48 30% 92%;
+    --muted: 210 20% 94%;
     --muted-foreground: 220 20% 40%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 48 30% 80%;
-    --input: 48 30% 85%;
+    --border: 220 20% 85%;
+    --input: 220 20% 85%;
     --ring: 217 91% 50%;
 
     --radius: 1rem;
@@ -44,30 +44,29 @@
     /* Game-specific colors */
     --game-success: 142 76% 45%;
     --game-error: 0 84% 60%;
-    --game-warning: 45 95% 55%;
+    --game-warning: 45 93% 58%;
     --game-info: 217 91% 50%;
 
-    /* Gradients - Sunburst Effect */
-    --gradient-hero: radial-gradient(ellipse at top, hsl(217 91% 50%) 0%, hsl(217 80% 60%) 25%, hsl(45 95% 55%) 60%, hsl(42 100% 50%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(48 40% 99%) 0%, hsl(48 50% 95%) 100%);
-    --gradient-play: radial-gradient(circle at center, hsl(42 100% 55%) 0%, hsl(45 95% 50%) 50%, hsl(217 91% 50%) 100%);
-    --gradient-sunburst: conic-gradient(from 0deg, hsl(217 91% 50%), hsl(45 95% 55%), hsl(42 100% 50%), hsl(45 95% 55%), hsl(217 91% 50%));
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 60%) 50%, hsl(45 93% 58%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 30% 98%) 100%);
+    --gradient-play: linear-gradient(135deg, hsl(45 93% 58%) 0%, hsl(35 93% 58%) 100%);
 
     /* Shadows */
-    --shadow-soft: 0 4px 20px -4px hsl(45 95% 55% / 0.2);
-    --shadow-card: 0 8px 30px -8px hsl(45 95% 55% / 0.25);
+    --shadow-soft: 0 4px 20px -4px hsl(217 91% 50% / 0.15);
+    --shadow-card: 0 8px 30px -8px hsl(217 91% 50% / 0.2);
     --shadow-button: 0 4px 14px -4px hsl(217 91% 50% / 0.4);
-    --shadow-glow: 0 0 40px hsl(42 100% 50% / 0.4);
+    --shadow-glow: 0 0 40px hsl(45 93% 58% / 0.3);
 
     /* Sidebar */
-    --sidebar-background: 220 40% 18%;
-    --sidebar-foreground: 48 50% 97%;
-    --sidebar-primary: 42 100% 50%;
-    --sidebar-primary-foreground: 42 100% 15%;
+    --sidebar-background: 220 40% 20%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 45 93% 58%;
+    --sidebar-primary-foreground: 45 100% 20%;
     --sidebar-accent: 220 40% 25%;
-    --sidebar-accent-foreground: 48 50% 97%;
+    --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 220 40% 25%;
-    --sidebar-ring: 42 100% 50%;
+    --sidebar-ring: 45 93% 58%;
   }
 
   .dark {

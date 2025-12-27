@@ -9,9 +9,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-hero opacity-20" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_hsl(42_100%_50%/0.3)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_hsl(217_91%_50%/0.2)_0%,_transparent_50%)]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10" />
         <div className="absolute top-20 left-10 text-6xl animate-float">📚</div>
         <div className="absolute top-40 right-20 text-5xl animate-float" style={{ animationDelay: '1s' }}>✏️</div>
         <div className="absolute bottom-20 left-1/4 text-4xl animate-float" style={{ animationDelay: '0.5s' }}>🎯</div>
