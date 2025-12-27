@@ -86,6 +86,7 @@ export default {
         'gradient-hero': 'var(--gradient-hero)',
         'gradient-card': 'var(--gradient-card)',
         'gradient-play': 'var(--gradient-play)',
+        'gradient-sunburst': 'var(--gradient-sunburst)',
       },
       keyframes: {
         "accordion-down": {
