@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
+import { useClasses, useStudentsByClass } from '@/hooks/useClasses';
+import ClassesManager from '@/components/ClassesManager';
 
 type SidebarItem = 'dashboard' | 'classes' | 'library' | 'analytics' | 'settings';
 
@@ -29,17 +31,6 @@ const exerciseTypeLabels: Record<string, string> = {
   REBUS: 'Ребус',
 };
 
-const demoClassGroups = [
-  { id: 'class-1', name: '2-А', grade: 2, studentCount: 24 },
-  { id: 'class-2', name: '3-Б', grade: 3, studentCount: 22 },
-];
-
-const demoStudents = [
-  { id: 'student-1', nickname: 'Максим', avatarEmoji: '🧒', classGroupId: 'class-1' },
-  { id: 'student-2', nickname: 'Софія', avatarEmoji: '👧', classGroupId: 'class-1' },
-  { id: 'student-3', nickname: 'Артем', avatarEmoji: '👦', classGroupId: 'class-2' },
-  { id: 'student-4', nickname: 'Оля', avatarEmoji: '👩', classGroupId: 'class-2' },
-];
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -52,6 +43,10 @@ const Dashboard = () => {
     selectedSubject ? { subjectId: selectedSubject } : undefined
   );
   const { data: subjects = [] } = useSubjects();
+  const { data: classes = [] } = useClasses();
+  
+  // Calculate total students across all classes
+  const totalStudents = classes.reduce((acc, cls) => acc, 0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -127,7 +122,7 @@ const Dashboard = () => {
         </header>
 
         <div className="p-6">
-          {activeItem === 'dashboard' && <DashboardView exercises={exercises} />}
+          {activeItem === 'dashboard' && <DashboardView exercises={exercises} classCount={classes.length} studentCount={totalStudents} />}
           {activeItem === 'classes' && <ClassesView />}
           {activeItem === 'library' && <LibraryView exercises={exercises} subjects={subjects} selectedSubject={selectedSubject} onSubjectChange={setSelectedSubject} isLoading={exercisesLoading} />}
           {activeItem === 'analytics' && <AnalyticsView />}
@@ -138,30 +133,18 @@ const Dashboard = () => {
   );
 };
 
-const DashboardView: React.FC<{ exercises: DbExercise[] }> = ({ exercises }) => (
+const DashboardView: React.FC<{ exercises: DbExercise[]; classCount: number; studentCount: number }> = ({ exercises, classCount, studentCount }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><Users className="h-6 w-6 text-primary" /></div><div><p className="text-sm text-muted-foreground">Класи</p><p className="text-2xl font-bold text-foreground">{demoClassGroups.length}</p></div></div></Card>
-      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center"><GraduationCap className="h-6 w-6 text-secondary" /></div><div><p className="text-sm text-muted-foreground">Учні</p><p className="text-2xl font-bold text-foreground">{demoStudents.length}</p></div></div></Card>
+      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><Users className="h-6 w-6 text-primary" /></div><div><p className="text-sm text-muted-foreground">Класи</p><p className="text-2xl font-bold text-foreground">{classCount}</p></div></div></Card>
+      <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center"><GraduationCap className="h-6 w-6 text-secondary" /></div><div><p className="text-sm text-muted-foreground">Учні</p><p className="text-2xl font-bold text-foreground">{studentCount}</p></div></div></Card>
       <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><BookOpen className="h-6 w-6 text-primary" /></div><div><p className="text-sm text-muted-foreground">Вправи</p><p className="text-2xl font-bold text-foreground">{exercises.length}</p></div></div></Card>
       <Card className="p-5"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center"><CheckCircle2 className="h-6 w-6 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Виконано сьогодні</p><p className="text-2xl font-bold text-foreground">0</p></div></div></Card>
     </div>
   </div>
 );
 
-const ClassesView = () => (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center"><h2 className="text-xl font-bold text-foreground">Мої класи</h2><Button><Plus className="mr-2 h-4 w-4" />Додати клас</Button></div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {demoClassGroups.map(classGroup => (
-        <Card key={classGroup.id} className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
-          <div className="h-24 bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center"><span className="text-4xl font-bold text-primary">{classGroup.name}</span></div>
-          <CardContent className="p-5"><div className="flex items-center justify-between"><Badge variant="secondary">{classGroup.grade} клас</Badge><span className="text-sm text-muted-foreground">{classGroup.studentCount} учнів</span></div></CardContent>
-        </Card>
-      ))}
-    </div>
-  </div>
-);
+const ClassesView = () => <ClassesManager />;
 
 const LibraryView: React.FC<{ exercises: DbExercise[]; subjects: { id: string; name: string }[]; selectedSubject: string | null; onSubjectChange: (s: string | null) => void; isLoading: boolean }> = ({ exercises, subjects, selectedSubject, onSubjectChange, isLoading }) => (
   <div className="space-y-6">
