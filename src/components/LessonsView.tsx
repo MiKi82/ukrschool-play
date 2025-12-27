@@ -19,11 +19,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   BookOpen, Calendar, Clock, Users, Trash2, Play, 
-  GripVertical, Loader2, FileText 
+  GripVertical, Loader2, FileText, User 
 } from 'lucide-react';
 import { useLessons, useDeleteLesson, Lesson } from '@/hooks/useLessons';
+import { useClasses, useStudentsByClass, StudentProfile } from '@/hooks/useClasses';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
@@ -31,10 +39,19 @@ import { uk } from 'date-fns/locale';
 const LessonsView: React.FC = () => {
   const navigate = useNavigate();
   const { data: lessons = [], isLoading } = useLessons();
+  const { data: classes = [] } = useClasses();
   const deleteLesson = useDeleteLesson();
   
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
+  
+  // Student selection state
+  const [studentSelectOpen, setStudentSelectOpen] = useState(false);
+  const [lessonToStart, setLessonToStart] = useState<Lesson | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
+  
+  const { data: studentsInClass = [] } = useStudentsByClass(selectedClassId || null);
 
   const handleDelete = async () => {
     if (!lessonToDelete) return;
@@ -48,7 +65,7 @@ const LessonsView: React.FC = () => {
     }
   };
 
-  const handleStartLesson = (lesson: Lesson) => {
+  const openStudentSelection = (lesson: Lesson) => {
     const sortedExercises = lesson.lesson_exercises
       ?.sort((a, b) => a.order_index - b.order_index) || [];
     
@@ -56,18 +73,37 @@ const LessonsView: React.FC = () => {
       toast.error('В уроці немає вправ');
       return;
     }
+    
+    setLessonToStart(lesson);
+    setSelectedClassId('');
+    setSelectedStudent(null);
+    setStudentSelectOpen(true);
+  };
 
-    // Start with the first exercise
+  const handleStartLesson = () => {
+    if (!lessonToStart || !selectedStudent) {
+      toast.error('Оберіть учня');
+      return;
+    }
+
+    const sortedExercises = lessonToStart.lesson_exercises
+      ?.sort((a, b) => a.order_index - b.order_index) || [];
+    
     const firstExercise = sortedExercises[0].exercise;
     if (firstExercise) {
       // Store lesson context in sessionStorage for navigation between exercises
       sessionStorage.setItem('currentLesson', JSON.stringify({
-        lessonId: lesson.id,
-        lessonTitle: lesson.title,
+        lessonId: lessonToStart.id,
+        lessonTitle: lessonToStart.title,
         exercises: sortedExercises.map(le => le.exercise?.id).filter(Boolean),
-        currentIndex: 0
+        currentIndex: 0,
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.nickname,
+        studentEmoji: selectedStudent.avatar_emoji
       }));
       
+      setStudentSelectOpen(false);
+      setSelectedLesson(null);
       navigate(`/play/game/${firstExercise.id}`);
     }
   };
@@ -191,7 +227,7 @@ const LessonsView: React.FC = () => {
                 </div>
                 <Button 
                   size="sm" 
-                  onClick={() => handleStartLesson(lesson)}
+                  onClick={() => openStudentSelection(lesson)}
                   disabled={exerciseCount === 0}
                 >
                   <Play className="h-4 w-4 mr-1" />
@@ -302,8 +338,7 @@ const LessonsView: React.FC = () => {
                   className="w-full" 
                   size="lg"
                   onClick={() => {
-                    handleStartLesson(selectedLesson);
-                    setSelectedLesson(null);
+                    openStudentSelection(selectedLesson);
                   }}
                   disabled={(selectedLesson.lesson_exercises?.length || 0) === 0}
                 >
@@ -341,6 +376,90 @@ const LessonsView: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Student Selection Dialog */}
+      <Dialog open={studentSelectOpen} onOpenChange={setStudentSelectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Оберіть учня
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Class Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Клас</label>
+              <Select
+                value={selectedClassId}
+                onValueChange={(value) => {
+                  setSelectedClassId(value);
+                  setSelectedStudent(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Оберіть клас" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name} ({cls.grade} клас)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Student Selection */}
+            {selectedClassId && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Учень</label>
+                {studentsInClass.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    В цьому класі немає учнів
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    {studentsInClass.map((student) => (
+                      <button
+                        key={student.id}
+                        onClick={() => setSelectedStudent(student)}
+                        className={`flex items-center gap-2 p-3 rounded-lg border transition-all text-left ${
+                          selectedStudent?.id === student.id
+                            ? 'border-primary bg-primary/10 ring-2 ring-primary'
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        }`}
+                      >
+                        <span className="text-2xl">{student.avatar_emoji}</span>
+                        <span className="font-medium text-sm truncate">{student.nickname}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setStudentSelectOpen(false)}
+            >
+              Скасувати
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleStartLesson}
+              disabled={!selectedStudent}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Почати
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
