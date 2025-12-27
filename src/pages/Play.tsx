@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   GraduationCap, Home, Star, ArrowRight, Sparkles,
-  BookOpen, Calculator, Loader2, Users
+  BookOpen, Calculator, Loader2, Users, Play, Eye, ExternalLink
 } from 'lucide-react';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
 import { useAllStudents } from '@/hooks/useStudentProgress';
@@ -224,23 +224,28 @@ const PlayPage = () => {
                 {exercises.map(exercise => (
                   <Card
                     key={exercise.id}
-                    className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all"
-                    onClick={() => setSelectedExercise(exercise)}
+                    className="overflow-hidden hover:shadow-lg transition-all group"
                   >
-                    <div className="h-32 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                      <span className="text-6xl">{exercise.thumbnail_emoji}</span>
+                    <div 
+                      className="h-32 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center cursor-pointer"
+                      onClick={() => setSelectedExercise(exercise)}
+                    >
+                      <span className="text-6xl group-hover:scale-110 transition-transform">{exercise.thumbnail_emoji}</span>
                     </div>
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-lg font-bold text-foreground line-clamp-2">
+                        <h3 
+                          className="text-lg font-bold text-foreground line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => setSelectedExercise(exercise)}
+                        >
                           {exercise.title}
                         </h3>
                       </div>
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                         {exercise.description}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex gap-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex gap-2 flex-wrap">
                           <Badge variant={
                             exercise.difficulty === 'EASY' ? 'easy' :
                             exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'
@@ -254,6 +259,34 @@ const PlayPage = () => {
                         <div className="flex items-center gap-1 text-muted-foreground text-sm">
                           <span>~{exercise.estimated_time} хв</span>
                         </div>
+                      </div>
+                      
+                      {/* Interactive Buttons */}
+                      <div className="flex gap-2 pt-3 border-t border-border">
+                        <Button 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => navigate(`/play/game/${exercise.id}?student=${selectedStudent?.id}`)}
+                        >
+                          <Play className="mr-1 h-4 w-4" />
+                          Грати
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setSelectedExercise(exercise)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {exercise.type === 'EXTERNAL_LINK' && exercise.external_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => window.open(exercise.external_url!, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

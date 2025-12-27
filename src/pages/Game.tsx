@@ -6,8 +6,9 @@ import { GraduationCap, ArrowLeft, Trophy, Star, Loader2, LayoutDashboard } from
 import { useExercise } from '@/hooks/useExercises';
 import { useSaveResult } from '@/hooks/useResults';
 import { useCheckAndAwardAchievements, Achievement } from '@/hooks/useAchievements';
-import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer } from '@/components/games';
-import { MatchingPair, QuizQuestion, DragDropItem, DragDropZone } from '@/types';
+import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer, CrosswordGame, FillInGame } from '@/components/games';
+import { MatchingPair, QuizQuestion, DragDropItem, DragDropZone, FillInBlank } from '@/types';
+import { CrosswordClue } from '@/components/games/CrosswordGame';
 import { AchievementNotification } from '@/components/AchievementNotification';
 import { toast } from 'sonner';
 
@@ -204,6 +205,21 @@ const GamePage = () => {
               title={exercise.title}
               description={exercise.description || ''}
               url={exercise.external_url}
+              onComplete={handleComplete}
+            />
+          )}
+
+          {exercise.type === 'CROSSWORD' && contentJson.clues && (
+            <CrosswordGame
+              clues={contentJson.clues as CrosswordClue[]}
+              gridSize={(contentJson.gridSize as number) || 10}
+              onComplete={handleComplete}
+            />
+          )}
+
+          {exercise.type === 'FILL_IN' && contentJson.sentences && (
+            <FillInGame
+              sentences={contentJson.sentences as FillInBlank[]}
               onComplete={handleComplete}
             />
           )}
