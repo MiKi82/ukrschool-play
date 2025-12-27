@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   GraduationCap, Home, Users, BookOpen, BarChart3, Settings,
   Plus, Play, Clock, CheckCircle2, Search,
-  Menu, X, Calculator, LogOut, Loader2
+  Menu, X, Calculator, LogOut, Loader2, Eye, ExternalLink
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
@@ -149,36 +150,116 @@ const DashboardView: React.FC<{ exercises: DbExercise[]; classCount: number; stu
 
 const ClassesView = () => <ClassesManager />;
 
-const LibraryView: React.FC<{ exercises: DbExercise[]; subjects: { id: string; name: string }[]; selectedSubject: string | null; onSubjectChange: (s: string | null) => void; isLoading: boolean }> = ({ exercises, subjects, selectedSubject, onSubjectChange, isLoading }) => (
-  <div className="space-y-6">
-    <div className="flex flex-wrap gap-4 items-center">
-      <div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><input type="text" placeholder="Пошук вправ..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary transition-all" /></div>
-      <div className="flex gap-2">
-        <Button variant={selectedSubject === null ? "default" : "outline"} onClick={() => onSubjectChange(null)}>Всі</Button>
-        {subjects.map(subject => (<Button key={subject.id} variant={selectedSubject === subject.id ? "default" : "outline"} onClick={() => onSubjectChange(subject.id)}>{subject.name === 'Математика' ? <Calculator className="mr-2 h-4 w-4" /> : <BookOpen className="mr-2 h-4 w-4" />}{subject.name}</Button>))}
+const LibraryView: React.FC<{ exercises: DbExercise[]; subjects: { id: string; name: string }[]; selectedSubject: string | null; onSubjectChange: (s: string | null) => void; isLoading: boolean }> = ({ exercises, subjects, selectedSubject, onSubjectChange, isLoading }) => {
+  const navigate = useNavigate();
+  const [previewExercise, setPreviewExercise] = useState<DbExercise | null>(null);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><input type="text" placeholder="Пошук вправ..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary transition-all" /></div>
+        <div className="flex gap-2">
+          <Button variant={selectedSubject === null ? "default" : "outline"} onClick={() => onSubjectChange(null)}>Всі</Button>
+          {subjects.map(subject => (<Button key={subject.id} variant={selectedSubject === subject.id ? "default" : "outline"} onClick={() => onSubjectChange(subject.id)}>{subject.name === 'Математика' ? <Calculator className="mr-2 h-4 w-4" /> : <BookOpen className="mr-2 h-4 w-4" />}{subject.name}</Button>))}
+        </div>
       </div>
-    </div>
-    {isLoading ? <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {exercises.map(exercise => (
-          <Card key={exercise.id} className="overflow-hidden">
-            <div className="h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center"><span className="text-5xl">{exercise.thumbnail_emoji}</span></div>
-            <CardContent className="p-5">
-              <h3 className="text-lg font-bold text-foreground mb-2">{exercise.title}</h3>
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{exercise.description}</p>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}>{difficultyLabels[exercise.difficulty]}</Badge>
-                <Badge variant="secondary">{exerciseTypeLabels[exercise.type]}</Badge>
-                <Badge variant="outline">{exercise.grade_number} клас</Badge>
+      {isLoading ? <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {exercises.map(exercise => (
+            <Card key={exercise.id} className="overflow-hidden group hover:shadow-lg transition-all">
+              <div 
+                className="h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center cursor-pointer"
+                onClick={() => setPreviewExercise(exercise)}
+              >
+                <span className="text-5xl group-hover:scale-110 transition-transform">{exercise.thumbnail_emoji}</span>
               </div>
-              <div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1">Переглянути</Button><Button size="sm" className="flex-1">Призначити</Button></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )}
-  </div>
-);
+              <CardContent className="p-5">
+                <h3 
+                  className="text-lg font-bold text-foreground mb-2 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => setPreviewExercise(exercise)}
+                >
+                  {exercise.title}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{exercise.description}</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <Badge variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}>{difficultyLabels[exercise.difficulty]}</Badge>
+                  <Badge variant="secondary">{exerciseTypeLabels[exercise.type]}</Badge>
+                  <Badge variant="outline">{exercise.grade_number} клас</Badge>
+                </div>
+                <div className="flex gap-2 pt-3 border-t border-border">
+                  <Button 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => navigate(`/play/game/${exercise.id}`)}
+                  >
+                    <Play className="mr-1 h-4 w-4" />
+                    Грати
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setPreviewExercise(exercise)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {exercise.type === 'EXTERNAL_LINK' && exercise.external_url && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => window.open(exercise.external_url!, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewExercise} onOpenChange={() => setPreviewExercise(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <span className="text-4xl">{previewExercise?.thumbnail_emoji}</span>
+              <span>{previewExercise?.title}</span>
+            </DialogTitle>
+          </DialogHeader>
+          {previewExercise && (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">{previewExercise.description}</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={previewExercise.difficulty === 'EASY' ? 'easy' : previewExercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}>
+                  {difficultyLabels[previewExercise.difficulty]}
+                </Badge>
+                <Badge variant="secondary">{exerciseTypeLabels[previewExercise.type]}</Badge>
+                <Badge variant="outline">{previewExercise.grade_number} клас</Badge>
+                <Badge variant="outline">~{previewExercise.estimated_time} хв</Badge>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button className="flex-1" onClick={() => {
+                  setPreviewExercise(null);
+                  navigate(`/play/game/${previewExercise.id}`);
+                }}>
+                  <Play className="mr-2 h-4 w-4" />
+                  Почати гру
+                </Button>
+                {previewExercise.type === 'EXTERNAL_LINK' && previewExercise.external_url && (
+                  <Button variant="outline" onClick={() => window.open(previewExercise.external_url!, '_blank')}>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Відкрити
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 
 const AnalyticsView = () => <StudentProgressTracker />;
 const SettingsView = () => (<div className="text-center py-20"><Settings className="h-16 w-16 text-muted-foreground mx-auto mb-4" /><h2 className="text-2xl font-bold text-foreground mb-2">Налаштування</h2><p className="text-muted-foreground">Налаштування профілю та системи.</p></div>);
