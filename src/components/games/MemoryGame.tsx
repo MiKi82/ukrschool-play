@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
   const [moves, setMoves] = useState(0);
   const [startTime] = useState(Date.now());
   const [isComplete, setIsComplete] = useState(false);
+  const hasCompletedRef = useRef(false);
 
   // Initialize cards
   useEffect(() => {
@@ -75,7 +76,8 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
 
   // Check completion
   useEffect(() => {
-    if (matchedPairs.length === pairs.length && pairs.length > 0 && !isComplete) {
+    if (matchedPairs.length === pairs.length && pairs.length > 0 && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
       setIsComplete(true);
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
       const maxScore = 100;
@@ -83,13 +85,14 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
       const score = Math.max(0, Math.floor(maxScore * (minMoves / moves)));
       onComplete(score, timeSpent);
     }
-  }, [matchedPairs.length, pairs.length, moves, startTime, onComplete, isComplete]);
+  }, [matchedPairs.length, pairs.length, moves, startTime, onComplete]);
 
   const resetGame = () => {
     setFlippedCards([]);
     setMatchedPairs([]);
     setMoves(0);
     setIsComplete(false);
+    hasCompletedRef.current = false;
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setCards(shuffled.map(c => ({ ...c, isMatched: false })));
   };
