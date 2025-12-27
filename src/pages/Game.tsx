@@ -1,22 +1,46 @@
 import React, { useState, useCallback } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GraduationCap, ArrowLeft, Trophy, Star, Loader2 } from 'lucide-react';
 import { useExercise } from '@/hooks/useExercises';
+import { useSaveResult } from '@/hooks/useResults';
 import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer } from '@/components/games';
 import { MatchingPair, QuizQuestion, DragDropItem, DragDropZone } from '@/types';
+import { toast } from 'sonner';
 
 const GamePage = () => {
   const { exerciseId } = useParams<{ exerciseId: string }>();
+  const [searchParams] = useSearchParams();
+  const studentId = searchParams.get('student');
   const navigate = useNavigate();
   const [gameResult, setGameResult] = useState<{ score: number; timeSpent: number } | null>(null);
 
   const { data: exercise, isLoading, error } = useExercise(exerciseId || '');
+  const saveResult = useSaveResult();
 
   const handleComplete = useCallback((score: number, timeSpent: number) => {
     setGameResult({ score, timeSpent });
-  }, []);
+    
+    // Save result to database if student is selected
+    if (studentId && exerciseId) {
+      saveResult.mutate({
+        studentId,
+        exerciseId,
+        score,
+        maxScore: 100,
+        timeSpent,
+        mistakes: Math.max(0, 100 - score) / 10,
+      }, {
+        onSuccess: () => {
+          toast.success('Результат збережено!');
+        },
+        onError: () => {
+          toast.error('Не вдалося зберегти результат');
+        }
+      });
+    }
+  }, [studentId, exerciseId, saveResult]);
 
   if (isLoading) {
     return (

@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   GraduationCap, Home, Star, ArrowRight, Sparkles,
-  BookOpen, Calculator, Loader2
+  BookOpen, Calculator, Loader2, Users
 } from 'lucide-react';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
+import { useAllStudents } from '@/hooks/useStudentProgress';
 
 const difficultyLabels: Record<string, string> = {
   EASY: 'Легко',
@@ -25,24 +26,27 @@ const exerciseTypeLabels: Record<string, string> = {
   REBUS: 'Ребус',
 };
 
-const demoStudents = [
-  { id: 'student-1', nickname: 'Максим', avatarEmoji: '🧒' },
-  { id: 'student-2', nickname: 'Софія', avatarEmoji: '👧' },
-  { id: 'student-3', nickname: 'Артем', avatarEmoji: '👦' },
-];
+interface StudentWithClass {
+  id: string;
+  nickname: string;
+  avatar_emoji: string;
+  class_group_id: string | null;
+  class_groups?: { name: string; grade: number } | null;
+}
 
 const PlayPage = () => {
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithClass | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<DbExercise | null>(null);
   const navigate = useNavigate();
 
+  const { data: allStudents = [], isLoading: studentsLoading } = useAllStudents();
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: exercises = [], isLoading: exercisesLoading } = useExercises(
     selectedSubject ? { subjectId: selectedSubject } : undefined
   );
 
-  const isLoading = subjectsLoading || exercisesLoading;
+  const isLoading = subjectsLoading || exercisesLoading || studentsLoading;
 
   if (selectedExercise) {
     return (
@@ -72,7 +76,7 @@ const PlayPage = () => {
             <Button 
               size="lg" 
               className="flex-1"
-              onClick={() => navigate(`/play/game/${selectedExercise.id}`)}
+              onClick={() => navigate(`/play/game/${selectedExercise.id}?student=${selectedStudent?.id}`)}
             >
               <Sparkles className="mr-2 h-5 w-5" />
               Почати гру
@@ -107,7 +111,7 @@ const PlayPage = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Student Selection */}
         {!selectedStudent ? (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-3xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-extrabold text-foreground mb-2">
                 Привіт! 👋
@@ -117,25 +121,42 @@ const PlayPage = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {demoStudents.map(student => (
-                <Card
-                  key={student.id}
-                  className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all"
-                  onClick={() => setSelectedStudent(student.id)}
-                >
-                  <div className="text-5xl mb-3">{student.avatarEmoji}</div>
-                  <h3 className="text-lg font-bold text-foreground">{student.nickname}</h3>
-                </Card>
-              ))}
-              <Card
-                className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all border-dashed"
-                onClick={() => setSelectedStudent('guest')}
-              >
-                <div className="text-5xl mb-3">🎮</div>
-                <h3 className="text-lg font-bold text-foreground">Гість</h3>
+            {studentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : allStudents.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Немає зареєстрованих учнів
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Щоб грати та зберігати прогрес, попросіть вчителя додати учнів у систему
+                </p>
+                <Button variant="outline" asChild>
+                  <Link to="/dashboard">Перейти до панелі вчителя</Link>
+                </Button>
               </Card>
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {allStudents.map((student) => (
+                  <Card
+                    key={student.id}
+                    className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all"
+                    onClick={() => setSelectedStudent(student as StudentWithClass)}
+                  >
+                    <div className="text-5xl mb-3">{student.avatar_emoji}</div>
+                    <h3 className="text-lg font-bold text-foreground">{student.nickname}</h3>
+                    {student.class_groups && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {student.class_groups.name}
+                      </p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -143,12 +164,10 @@ const PlayPage = () => {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl">
-                    {demoStudents.find(s => s.id === selectedStudent)?.avatarEmoji || '🎮'}
-                  </span>
+                  <span className="text-4xl">{selectedStudent.avatar_emoji}</span>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
-                      Вітаємо, {demoStudents.find(s => s.id === selectedStudent)?.nickname || 'Гість'}!
+                      Вітаємо, {selectedStudent.nickname}!
                     </h1>
                     <p className="text-muted-foreground">Обери предмет та почни грати</p>
                   </div>
