@@ -160,7 +160,7 @@ const Index = () => {
                 <span className="text-2xl font-bold text-primary">1</span>
               </div>
               <CardContent className="p-0 pt-8">
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">🖱️</div>
+                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">📚</div>
                 <h3 className="text-xl font-bold text-foreground mb-3">Оберіть тему</h3>
                 <p className="text-muted-foreground">
                   Оберіть предмет (Математика/Укр. мова), клас та тему з нашої бібліотеки, що відповідає програмі НУШ.
