@@ -6,10 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Users, ArrowLeft, Pencil, Trash2, Loader2, UserPlus, Upload, X, Camera } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Pencil, Trash2, Loader2, UserPlus, Upload, X, Camera, BarChart3 } from 'lucide-react';
 import { useClasses, useStudentsByClass, useCreateClass, useUpdateClass, useDeleteClass, useCreateStudent, useUpdateStudent, useDeleteStudent, ClassGroup, StudentProfile } from '@/hooks/useClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { StudentStatsDialog } from '@/components/StudentStatsDialog';
 
 const AVATAR_EMOJIS = ['🧒', '👧', '👦', '👩', '🧑', '👨', '👶', '🧒🏻', '👧🏻', '👦🏻', '🧒🏽', '👧🏽', '👦🏽', '🧒🏿', '👧🏿', '👦🏿'];
 
@@ -205,6 +206,7 @@ const StudentsList: React.FC<{
   const { data: students = [], isLoading } = useStudentsByClass(classGroup.id);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentProfile | null>(null);
+  const [statsStudent, setStatsStudent] = useState<StudentProfile | null>(null);
 
   const handleAddStudent = () => {
     setEditingStudent(null);
@@ -214,6 +216,10 @@ const StudentsList: React.FC<{
   const handleEditStudent = (student: StudentProfile) => {
     setEditingStudent(student);
     setIsStudentDialogOpen(true);
+  };
+
+  const handleViewStats = (student: StudentProfile) => {
+    setStatsStudent(student);
   };
 
   return (
@@ -247,7 +253,12 @@ const StudentsList: React.FC<{
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {students.map(student => (
-            <StudentCard key={student.id} student={student} onEdit={() => handleEditStudent(student)} />
+            <StudentCard 
+              key={student.id} 
+              student={student} 
+              onEdit={() => handleEditStudent(student)}
+              onViewStats={() => handleViewStats(student)}
+            />
           ))}
         </div>
       )}
@@ -258,17 +269,26 @@ const StudentsList: React.FC<{
         student={editingStudent}
         classGroupId={classGroup.id}
       />
+
+      <StudentStatsDialog
+        isOpen={!!statsStudent}
+        onClose={() => setStatsStudent(null)}
+        student={statsStudent}
+      />
     </div>
   );
 };
 
+
 const StudentCard: React.FC<{
   student: StudentProfile;
   onEdit: () => void;
-}> = ({ student, onEdit }) => {
+  onViewStats: () => void;
+}> = ({ student, onEdit, onViewStats }) => {
   const deleteStudent = useDeleteStudent();
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (confirm(`Видалити учня "${student.nickname}"?`)) {
       try {
         await deleteStudent.mutateAsync({ id: student.id, classGroupId: student.class_group_id! });
@@ -279,8 +299,16 @@ const StudentCard: React.FC<{
     }
   };
 
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit();
+  };
+
   return (
-    <Card className="p-4 group hover:shadow-md transition-shadow">
+    <Card 
+      className="p-4 group hover:shadow-md transition-shadow cursor-pointer"
+      onClick={onViewStats}
+    >
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
           {student.photo_url ? (
@@ -295,9 +323,13 @@ const StudentCard: React.FC<{
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground truncate">{student.nickname}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <BarChart3 className="h-3 w-3" />
+            Натисніть для статистики
+          </p>
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onEdit}>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleEdit}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={handleDelete} disabled={deleteStudent.isPending}>
