@@ -1,16 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  GripVertical, X, Clock, Plus, Save, Trash2, 
-  ChevronUp, ChevronDown, BookOpen, Users
+  GripVertical, X, Clock, Plus, Save, 
+  ChevronUp, ChevronDown, BookOpen, Users, Search, Library, Loader2
 } from 'lucide-react';
-import { DbExercise } from '@/hooks/useExercises';
+import { DbExercise, useExercises, useSubjects } from '@/hooks/useExercises';
 import { useClasses } from '@/hooks/useClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +43,8 @@ interface LessonBuilderProps {
 const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExercises = [] }) => {
   const { user } = useAuth();
   const { data: classes = [] } = useClasses();
+  const { data: allExercises = [], isLoading: exercisesLoading } = useExercises();
+  const { data: subjects = [] } = useSubjects();
   
   const [lessonTitle, setLessonTitle] = useState('');
   const [exercises, setExercises] = useState<DbExercise[]>(initialExercises);
@@ -48,6 +52,10 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
+  // Library filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
   // Update exercises when initialExercises changes
   React.useEffect(() => {
@@ -57,6 +65,31 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
   }, [initialExercises]);
 
   const totalTime = exercises.reduce((sum, ex) => sum + ex.estimated_time, 0);
+
+  // Filter available exercises (exclude already added)
+  const availableExercises = useMemo(() => {
+    const addedIds = new Set(exercises.map(e => e.id));
+    let filtered = allExercises.filter(e => !addedIds.has(e.id));
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(e => 
+        e.title.toLowerCase().includes(query) ||
+        e.description?.toLowerCase().includes(query)
+      );
+    }
+    
+    if (selectedSubject) {
+      filtered = filtered.filter(e => e.subject_id === selectedSubject);
+    }
+    
+    return filtered;
+  }, [allExercises, exercises, searchQuery, selectedSubject]);
+
+  // Add exercise from library
+  const addExercise = (exercise: DbExercise) => {
+    setExercises(prev => [...prev, exercise]);
+  };
 
   // Drag and drop handlers
   const handleDragStart = (index: number) => {
@@ -163,12 +196,14 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
     setExercises([]);
     setSelectedClassId(null);
     setDueDate('');
+    setSearchQuery('');
+    setSelectedSubject(null);
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
@@ -176,150 +211,243 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Lesson Title */}
-          <div className="space-y-2">
-            <Label htmlFor="lessonTitle">Назва уроку</Label>
-            <Input
-              id="lessonTitle"
-              value={lessonTitle}
-              onChange={(e) => setLessonTitle(e.target.value)}
-              placeholder="Введіть назву уроку..."
-            />
-          </div>
+        <Tabs defaultValue="lesson" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="lesson" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Урок ({exercises.length})
+            </TabsTrigger>
+            <TabsTrigger value="library" className="flex items-center gap-2">
+              <Library className="h-4 w-4" />
+              Бібліотека
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Exercises List */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Вправи ({exercises.length})</Label>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                Загальний час: ~{totalTime} хв
-              </div>
+          {/* Lesson Tab */}
+          <TabsContent value="lesson" className="flex-1 overflow-y-auto space-y-6 py-4">
+            {/* Lesson Title */}
+            <div className="space-y-2">
+              <Label htmlFor="lessonTitle">Назва уроку</Label>
+              <Input
+                id="lessonTitle"
+                value={lessonTitle}
+                onChange={(e) => setLessonTitle(e.target.value)}
+                placeholder="Введіть назву уроку..."
+              />
             </div>
 
-            {exercises.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Вправи не додано</p>
-                  <p className="text-sm">Виберіть вправи з бібліотеки</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {exercises.map((exercise, index) => (
-                  <Card
-                    key={`${exercise.id}-${index}`}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={`cursor-move transition-all ${
-                      draggedIndex === index ? 'opacity-50 scale-95' : ''
-                    }`}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        
-                        <span className="text-2xl flex-shrink-0">{exercise.thumbnail_emoji}</span>
-                        
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {index + 1}. {exercise.title}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              {exerciseTypeLabels[exercise.type]}
-                            </Badge>
-                            <Badge 
-                              variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}
-                              className="text-xs"
+            {/* Exercises List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Вправи ({exercises.length})</Label>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  Загальний час: ~{totalTime} хв
+                </div>
+              </div>
+
+              {exercises.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Вправи не додано</p>
+                    <p className="text-sm">Перейдіть у вкладку "Бібліотека" щоб додати</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {exercises.map((exercise, index) => (
+                    <Card
+                      key={`${exercise.id}-${index}`}
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={`cursor-move transition-all ${
+                        draggedIndex === index ? 'opacity-50 scale-95' : ''
+                      }`}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          
+                          <span className="text-2xl flex-shrink-0">{exercise.thumbnail_emoji}</span>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">
+                              {index + 1}. {exercise.title}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {exerciseTypeLabels[exercise.type]}
+                              </Badge>
+                              <Badge 
+                                variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}
+                                className="text-xs"
+                              >
+                                {difficultyLabels[exercise.difficulty]}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                ~{exercise.estimated_time} хв
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => moveExercise(index, 'up')}
+                              disabled={index === 0}
                             >
-                              {difficultyLabels[exercise.difficulty]}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              ~{exercise.estimated_time} хв
-                            </Badge>
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => moveExercise(index, 'down')}
+                              disabled={index === exercises.length - 1}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => removeExercise(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => moveExercise(index, 'up')}
-                            disabled={index === 0}
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => moveExercise(index, 'down')}
-                            disabled={index === exercises.length - 1}
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => removeExercise(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
+            {/* Assignment Settings */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Призначити класу (опціонально)
+              </Label>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="class">Клас</Label>
+                  <Select value={selectedClassId || ''} onValueChange={setSelectedClassId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Виберіть клас" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map(cls => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name} ({cls.grade} клас)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Assignment Settings */}
-          <div className="space-y-4 pt-4 border-t border-border">
-            <Label className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Призначити класу (опціонально)
-            </Label>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="class">Клас</Label>
-                <Select value={selectedClassId || ''} onValueChange={setSelectedClassId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Виберіть клас" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map(cls => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name} ({cls.grade} клас)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dueDate">Дата виконання</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">Дата виконання</Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
 
-        <DialogFooter className="gap-2">
+          {/* Library Tab */}
+          <TabsContent value="library" className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
+            {/* Search and Filter */}
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Пошук вправ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={selectedSubject || 'all'} onValueChange={(v) => setSelectedSubject(v === 'all' ? null : v)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Предмет" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Всі предмети</SelectItem>
+                  {subjects.map(subject => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Available Exercises */}
+            <ScrollArea className="flex-1">
+              {exercisesLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : availableExercises.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Вправ не знайдено</p>
+                </div>
+              ) : (
+                <div className="space-y-2 pr-4">
+                  {availableExercises.map(exercise => (
+                    <Card 
+                      key={exercise.id} 
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => addExercise(exercise)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{exercise.thumbnail_emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{exercise.title}</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {exerciseTypeLabels[exercise.type]}
+                              </Badge>
+                              <Badge 
+                                variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}
+                                className="text-xs"
+                              >
+                                {difficultyLabels[exercise.difficulty]}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {exercise.grade_number} клас
+                              </Badge>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="gap-2 pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             Скасувати
           </Button>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { 
-  BookOpen, Calendar, Clock, Users, Trash2, Eye, 
+  BookOpen, Calendar, Clock, Users, Trash2, Play, 
   GripVertical, Loader2, FileText 
 } from 'lucide-react';
 import { useLessons, useDeleteLesson, Lesson } from '@/hooks/useLessons';
@@ -28,6 +29,7 @@ import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 
 const LessonsView: React.FC = () => {
+  const navigate = useNavigate();
   const { data: lessons = [], isLoading } = useLessons();
   const deleteLesson = useDeleteLesson();
   
@@ -43,6 +45,30 @@ const LessonsView: React.FC = () => {
       setLessonToDelete(null);
     } catch (error) {
       toast.error('Помилка при видаленні уроку');
+    }
+  };
+
+  const handleStartLesson = (lesson: Lesson) => {
+    const sortedExercises = lesson.lesson_exercises
+      ?.sort((a, b) => a.order_index - b.order_index) || [];
+    
+    if (sortedExercises.length === 0) {
+      toast.error('В уроці немає вправ');
+      return;
+    }
+
+    // Start with the first exercise
+    const firstExercise = sortedExercises[0].exercise;
+    if (firstExercise) {
+      // Store lesson context in sessionStorage for navigation between exercises
+      sessionStorage.setItem('currentLesson', JSON.stringify({
+        lessonId: lesson.id,
+        lessonTitle: lesson.title,
+        exercises: sortedExercises.map(le => le.exercise?.id).filter(Boolean),
+        currentIndex: 0
+      }));
+      
+      navigate(`/play/game/${firstExercise.id}`);
     }
   };
 
@@ -98,11 +124,13 @@ const LessonsView: React.FC = () => {
           return (
             <Card 
               key={lesson.id}
-              className="p-5 hover:shadow-lg transition-all cursor-pointer group"
-              onClick={() => setSelectedLesson(lesson)}
+              className="p-5 hover:shadow-lg transition-all group"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
+                <div 
+                  className="flex items-center gap-3 cursor-pointer flex-1"
+                  onClick={() => setSelectedLesson(lesson)}
+                >
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                     <BookOpen className="h-6 w-6 text-primary" />
                   </div>
@@ -144,21 +172,31 @@ const LessonsView: React.FC = () => {
               </div>
 
               {/* Exercise previews */}
-              <div className="flex -space-x-2">
-                {lesson.lesson_exercises?.slice(0, 5).map((le) => (
-                  <div
-                    key={le.id}
-                    className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border-2 border-background text-sm"
-                    title={le.exercise?.title}
-                  >
-                    {le.exercise?.thumbnail_emoji || '📝'}
-                  </div>
-                ))}
-                {exerciseCount > 5 && (
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border-2 border-background text-xs font-medium">
-                    +{exerciseCount - 5}
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <div className="flex -space-x-2">
+                  {lesson.lesson_exercises?.slice(0, 5).map((le) => (
+                    <div
+                      key={le.id}
+                      className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border-2 border-background text-sm"
+                      title={le.exercise?.title}
+                    >
+                      {le.exercise?.thumbnail_emoji || '📝'}
+                    </div>
+                  ))}
+                  {exerciseCount > 5 && (
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border-2 border-background text-xs font-medium">
+                      +{exerciseCount - 5}
+                    </div>
+                  )}
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={() => handleStartLesson(lesson)}
+                  disabled={exerciseCount === 0}
+                >
+                  <Play className="h-4 w-4 mr-1" />
+                  Почати
+                </Button>
               </div>
             </Card>
           );
@@ -241,9 +279,37 @@ const LessonsView: React.FC = () => {
                             </Badge>
                           </div>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (le.exercise) {
+                              navigate(`/play/game/${le.exercise.id}`);
+                              setSelectedLesson(null);
+                            }
+                          }}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                 </div>
+              </div>
+
+              {/* Start Lesson Button */}
+              <div className="pt-4 border-t">
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => {
+                    handleStartLesson(selectedLesson);
+                    setSelectedLesson(null);
+                  }}
+                  disabled={(selectedLesson.lesson_exercises?.length || 0) === 0}
+                >
+                  <Play className="h-5 w-5 mr-2" />
+                  Почати урок
+                </Button>
               </div>
             </div>
           )}
