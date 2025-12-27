@@ -20,18 +20,18 @@ const Index = () => {
       {/* Hero Section */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10" />
-        <div className="absolute top-20 left-10 text-6xl animate-float opacity-10">📚</div>
-        <div className="absolute top-40 right-20 text-5xl animate-float opacity-10" style={{ animationDelay: "1s" }}>
+        <div className="absolute top-20 left-10 text-6xl animate-float opacity-80">📚</div>
+        <div className="absolute top-40 right-20 text-5xl animate-float opacity-80" style={{ animationDelay: "1s" }}>
           🎮
         </div>
         <div
-          className="absolute bottom-20 left-1/4 text-4xl animate-float opacity-10"
+          className="absolute bottom-20 left-1/4 text-4xl animate-float opacity-80"
           style={{ animationDelay: "0.5s" }}
         >
           📊
         </div>
         <div
-          className="absolute bottom-40 right-1/3 text-5xl animate-float opacity-10"
+          className="absolute bottom-40 right-1/3 text-5xl animate-float opacity-80"
           style={{ animationDelay: "1.5s" }}
         >
           ✨
