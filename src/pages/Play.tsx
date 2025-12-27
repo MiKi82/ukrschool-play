@@ -1,42 +1,96 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   GraduationCap, Home, Star, ArrowRight, Sparkles,
-  BookOpen, Calculator
+  BookOpen, Calculator, Loader2
 } from 'lucide-react';
-import { subjects, exercises, students, difficultyLabels, exerciseTypeLabels } from '@/data/seedData';
-import { Exercise } from '@/types';
+import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
+
+const difficultyLabels: Record<string, string> = {
+  EASY: 'Легко',
+  MEDIUM: 'Середньо', 
+  HARD: 'Складно',
+};
+
+const exerciseTypeLabels: Record<string, string> = {
+  MATCHING: 'Пари',
+  DRAG_DROP: 'Перетягування',
+  QUIZ: 'Тест',
+  FILL_IN: 'Заповнення',
+  EXTERNAL_LINK: 'Зовнішнє',
+  CROSSWORD: 'Кросворд',
+  REBUS: 'Ребус',
+};
+
+const demoStudents = [
+  { id: 'student-1', nickname: 'Максим', avatarEmoji: '🧒' },
+  { id: 'student-2', nickname: 'Софія', avatarEmoji: '👧' },
+  { id: 'student-3', nickname: 'Артем', avatarEmoji: '👦' },
+];
 
 const PlayPage = () => {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<DbExercise | null>(null);
+  const navigate = useNavigate();
 
-  const filteredExercises = selectedSubject 
-    ? exercises.filter(e => e.subjectId === selectedSubject)
-    : exercises;
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const { data: exercises = [], isLoading: exercisesLoading } = useExercises(
+    selectedSubject ? { subjectId: selectedSubject } : undefined
+  );
+
+  const isLoading = subjectsLoading || exercisesLoading;
 
   if (selectedExercise) {
     return (
-      <Link to={`/play/game/${selectedExercise.id}`} className="block">
-        <GamePreview 
-          exercise={selectedExercise} 
-          onBack={() => setSelectedExercise(null)}
-        />
-      </Link>
+      <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full p-8 text-center">
+          <div className="text-7xl mb-6 animate-bounce">{selectedExercise.thumbnail_emoji}</div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">{selectedExercise.title}</h1>
+          <p className="text-muted-foreground mb-6">{selectedExercise.description}</p>
+          <div className="flex justify-center gap-2 mb-6">
+            <Badge variant={
+              selectedExercise.difficulty === 'EASY' ? 'easy' :
+              selectedExercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'
+            }>
+              {difficultyLabels[selectedExercise.difficulty]}
+            </Badge>
+            <Badge variant="secondary">~{selectedExercise.estimated_time} хв</Badge>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-secondary mb-6">
+            {[...Array(3)].map((_, i) => (
+              <Star key={i} className="h-6 w-6 fill-secondary" />
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setSelectedExercise(null)} className="flex-1">
+              Назад
+            </Button>
+            <Button 
+              size="lg" 
+              className="flex-1"
+              onClick={() => navigate(`/play/game/${selectedExercise.id}`)}
+            >
+              <Sparkles className="mr-2 h-5 w-5" />
+              Почати гру
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </div>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary-light/30 to-accent/10">
+    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-secondary/10">
       {/* Header */}
       <header className="py-4 px-4 border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <GraduationCap className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-extrabold text-primary">УкрШкола</span>
@@ -64,25 +118,21 @@ const PlayPage = () => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {students.map(student => (
+              {demoStudents.map(student => (
                 <Card
                   key={student.id}
-                  variant="interactive"
-                  className="p-6 text-center cursor-pointer group"
+                  className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all"
                   onClick={() => setSelectedStudent(student.id)}
                 >
-                  <div className="text-5xl mb-3 group-hover:animate-bounce-slow">
-                    {student.avatarEmoji}
-                  </div>
+                  <div className="text-5xl mb-3">{student.avatarEmoji}</div>
                   <h3 className="text-lg font-bold text-foreground">{student.nickname}</h3>
                 </Card>
               ))}
               <Card
-                variant="interactive"
-                className="p-6 text-center cursor-pointer group border-dashed"
+                className="p-6 text-center cursor-pointer hover:shadow-lg hover:scale-105 transition-all border-dashed"
                 onClick={() => setSelectedStudent('guest')}
               >
-                <div className="text-5xl mb-3 group-hover:animate-bounce-slow">🎮</div>
+                <div className="text-5xl mb-3">🎮</div>
                 <h3 className="text-lg font-bold text-foreground">Гість</h3>
               </Card>
             </div>
@@ -94,11 +144,11 @@ const PlayPage = () => {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <span className="text-4xl">
-                    {students.find(s => s.id === selectedStudent)?.avatarEmoji || '🎮'}
+                    {demoStudents.find(s => s.id === selectedStudent)?.avatarEmoji || '🎮'}
                   </span>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
-                      Вітаємо, {students.find(s => s.id === selectedStudent)?.nickname || 'Гість'}!
+                      Вітаємо, {demoStudents.find(s => s.id === selectedStudent)?.nickname || 'Гість'}!
                     </h1>
                     <p className="text-muted-foreground">Обери предмет та почни грати</p>
                   </div>
@@ -127,7 +177,7 @@ const PlayPage = () => {
                     onClick={() => setSelectedSubject(subject.id)}
                     className="rounded-full"
                   >
-                    {subject.id === 'math' ? (
+                    {subject.name === 'Математика' ? (
                       <Calculator className="mr-2 h-5 w-5" />
                     ) : (
                       <BookOpen className="mr-2 h-5 w-5" />
@@ -138,84 +188,62 @@ const PlayPage = () => {
               </div>
             </div>
 
-            {/* Exercises Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredExercises.map(exercise => (
-                <Card
-                  key={exercise.id}
-                  variant="game"
-                  className="overflow-hidden cursor-pointer group"
-                  onClick={() => setSelectedExercise(exercise)}
-                >
-                  <div className="h-32 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <span className="text-6xl group-hover:animate-bounce-slow">
-                      {exercise.thumbnailEmoji}
-                    </span>
-                  </div>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-bold text-foreground line-clamp-2">
-                        {exercise.title}
-                      </h3>
+            {/* Loading State */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Завантаження...</span>
+              </div>
+            ) : exercises.length === 0 ? (
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Вправи не знайдено</p>
+              </div>
+            ) : (
+              /* Exercises Grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {exercises.map(exercise => (
+                  <Card
+                    key={exercise.id}
+                    className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all"
+                    onClick={() => setSelectedExercise(exercise)}
+                  >
+                    <div className="h-32 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                      <span className="text-6xl">{exercise.thumbnail_emoji}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {exercise.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-2">
-                        <Badge variant={
-                          exercise.difficulty === 'EASY' ? 'easy' :
-                          exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'
-                        }>
-                          {difficultyLabels[exercise.difficulty]}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {exerciseTypeLabels[exercise.type]}
-                        </Badge>
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-lg font-bold text-foreground line-clamp-2">
+                          {exercise.title}
+                        </h3>
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                        <span>~{exercise.estimatedTime} хв</span>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {exercise.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2">
+                          <Badge variant={
+                            exercise.difficulty === 'EASY' ? 'easy' :
+                            exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'
+                          }>
+                            {difficultyLabels[exercise.difficulty]}
+                          </Badge>
+                          <Badge variant="secondary">
+                            {exerciseTypeLabels[exercise.type]}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                          <span>~{exercise.estimated_time} хв</span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>
-    </div>
-  );
-};
-
-// Game Preview Component
-const GamePreview: React.FC<{ exercise: Exercise; onBack: () => void }> = ({ exercise }) => {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-light/50 to-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full p-8 text-center">
-        <div className="text-7xl mb-6 animate-bounce-slow">{exercise.thumbnailEmoji}</div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">{exercise.title}</h1>
-        <p className="text-muted-foreground mb-6">{exercise.description}</p>
-        <div className="flex justify-center gap-2 mb-6">
-          <Badge variant={
-            exercise.difficulty === 'EASY' ? 'easy' :
-            exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'
-          }>
-            {difficultyLabels[exercise.difficulty]}
-          </Badge>
-          <Badge variant="info">~{exercise.estimatedTime} хв</Badge>
-        </div>
-        <div className="flex items-center justify-center gap-2 text-accent-foreground mb-6">
-          {[...Array(3)].map((_, i) => (
-            <Star key={i} className="h-6 w-6 text-accent fill-accent" />
-          ))}
-        </div>
-        <Button size="xl" variant="hero" className="w-full">
-          <Sparkles className="mr-2 h-6 w-6" />
-          Почати гру
-          <ArrowRight className="ml-2 h-6 w-6" />
-        </Button>
-      </Card>
     </div>
   );
 };

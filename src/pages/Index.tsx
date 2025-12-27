@@ -25,9 +25,12 @@ const Index = () => {
             </div>
             <div className="flex gap-3">
               <Button variant="ghost" asChild>
+                <Link to="/auth">Увійти</Link>
+              </Button>
+              <Button variant="ghost" asChild>
                 <Link to="/dashboard">Для вчителів</Link>
               </Button>
-              <Button variant="play" asChild>
+              <Button variant="default" asChild>
                 <Link to="/play">
                   <Gamepad2 className="mr-2 h-5 w-5" />
                   Грати
