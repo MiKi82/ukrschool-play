@@ -8,10 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Search, Play, Eye, ExternalLink, Calculator, BookOpen, 
-  Loader2, Filter, X, Plus, GripVertical
+  Loader2, Filter, X, Plus, GripVertical, Link2
 } from 'lucide-react';
 import { useExercises, useSubjects, useTopics, DbExercise } from '@/hooks/useExercises';
-
+import AddExternalLinkDialog from './AddExternalLinkDialog';
 const difficultyLabels: Record<string, string> = {
   EASY: 'Легко',
   MEDIUM: 'Середньо', 
@@ -49,6 +49,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onOpenLessonBuilder }) => {
   
   // Preview state
   const [previewExercise, setPreviewExercise] = useState<DbExercise | null>(null);
+  
+  // Add external link dialog
+  const [showAddLinkDialog, setShowAddLinkDialog] = useState(false);
 
   // Data fetching with filters
   const { data: subjects = [] } = useSubjects();
@@ -229,12 +232,19 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onOpenLessonBuilder }) => {
           )}
         </div>
 
-        {selectionMode && selectedExercises.size > 0 && (
-          <Button onClick={handleCreateLesson}>
-            <Plus className="h-4 w-4 mr-2" />
-            Створити урок ({selectedExercises.size})
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowAddLinkDialog(true)}>
+            <Link2 className="h-4 w-4 mr-2" />
+            Додати посилання
           </Button>
-        )}
+          
+          {selectionMode && selectedExercises.size > 0 && (
+            <Button onClick={handleCreateLesson}>
+              <Plus className="h-4 w-4 mr-2" />
+              Створити урок ({selectedExercises.size})
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Results Count */}
@@ -378,6 +388,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onOpenLessonBuilder }) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add External Link Dialog */}
+      <AddExternalLinkDialog 
+        open={showAddLinkDialog} 
+        onOpenChange={setShowAddLinkDialog} 
+      />
     </div>
   );
 };
