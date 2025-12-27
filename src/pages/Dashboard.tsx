@@ -1,55 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card } from '@/components/ui/card';
 import { 
   GraduationCap, Home, Users, BookOpen, BarChart3, Settings,
-  Plus, Play, Clock, CheckCircle2, Search,
-  Menu, X, Calculator, LogOut, Loader2, Eye, ExternalLink
+  Plus, Play, CheckCircle2, Menu, X, LogOut, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
-import { useClasses, useStudentsByClass } from '@/hooks/useClasses';
+import { useExercises, DbExercise } from '@/hooks/useExercises';
+import { useClasses } from '@/hooks/useClasses';
 import { useAllStudents } from '@/hooks/useStudentProgress';
 import ClassesManager from '@/components/ClassesManager';
 import StudentProgressTracker from '@/components/StudentProgressTracker';
+import LibraryView from '@/components/LibraryView';
+import LessonBuilder from '@/components/LessonBuilder';
 
 type SidebarItem = 'dashboard' | 'classes' | 'library' | 'analytics' | 'settings';
-
-const difficultyLabels: Record<string, string> = {
-  EASY: 'Легко',
-  MEDIUM: 'Середньо', 
-  HARD: 'Складно',
-};
-
-const exerciseTypeLabels: Record<string, string> = {
-  MATCHING: 'Пари',
-  DRAG_DROP: 'Перетягування',
-  QUIZ: 'Тест',
-  FILL_IN: 'Заповнення',
-  EXTERNAL_LINK: 'Зовнішнє',
-  CROSSWORD: 'Кросворд',
-  REBUS: 'Ребус',
-};
-
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<SidebarItem>('dashboard');
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  
+  // Lesson builder state
+  const [lessonBuilderOpen, setLessonBuilderOpen] = useState(false);
+  const [selectedExercisesForLesson, setSelectedExercisesForLesson] = useState<DbExercise[]>([]);
 
-  const { data: exercises = [], isLoading: exercisesLoading } = useExercises(
-    selectedSubject ? { subjectId: selectedSubject } : undefined
-  );
-  const { data: subjects = [] } = useSubjects();
+  const { data: exercises = [] } = useExercises();
   const { data: classes = [] } = useClasses();
   const { data: allStudents = [] } = useAllStudents();
   
-  // Calculate total students
   const totalStudents = allStudents.length;
 
   useEffect(() => {
@@ -65,6 +46,11 @@ const Dashboard = () => {
     { id: 'analytics', label: 'Аналітика', icon: <BarChart3 className="h-5 w-5" /> },
     { id: 'settings', label: 'Налаштування', icon: <Settings className="h-5 w-5" /> },
   ];
+
+  const handleOpenLessonBuilder = (exercises: DbExercise[]) => {
+    setSelectedExercisesForLesson(exercises);
+    setLessonBuilderOpen(true);
+  };
 
   if (authLoading) {
     return (
@@ -84,7 +70,7 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Sidebar - hidden by default, slides in when opened */}
+      {/* Sidebar */}
       <aside className={`
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         bg-sidebar text-sidebar-foreground transition-all duration-300 fixed inset-y-0 left-0 z-50 flex flex-col w-64
@@ -144,20 +130,41 @@ const Dashboard = () => {
               <Button variant="outline" size="icon" asChild className="sm:hidden">
                 <Link to="/play"><Play className="h-4 w-4" /></Link>
               </Button>
-              <Button size="sm" className="hidden sm:flex"><Plus className="mr-2 h-4 w-4" />Нове завдання</Button>
-              <Button size="icon" className="sm:hidden"><Plus className="h-4 w-4" /></Button>
+              <Button size="sm" className="hidden sm:flex" onClick={() => setLessonBuilderOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />Нове завдання
+              </Button>
+              <Button size="icon" className="sm:hidden" onClick={() => setLessonBuilderOpen(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </header>
 
         <div className="p-4 sm:p-6">
-          {activeItem === 'dashboard' && <DashboardView exercises={exercises} classCount={classes.length} studentCount={totalStudents} onNavigate={(view) => setActiveItem(view)} />}
-          {activeItem === 'classes' && <ClassesView />}
-          {activeItem === 'library' && <LibraryView exercises={exercises} subjects={subjects} selectedSubject={selectedSubject} onSubjectChange={setSelectedSubject} isLoading={exercisesLoading} />}
-          {activeItem === 'analytics' && <AnalyticsView />}
+          {activeItem === 'dashboard' && (
+            <DashboardView 
+              exercises={exercises} 
+              classCount={classes.length} 
+              studentCount={totalStudents} 
+              onNavigate={(view) => setActiveItem(view)} 
+            />
+          )}
+          {activeItem === 'classes' && <ClassesManager />}
+          {activeItem === 'library' && <LibraryView onOpenLessonBuilder={handleOpenLessonBuilder} />}
+          {activeItem === 'analytics' && <StudentProgressTracker />}
           {activeItem === 'settings' && <SettingsView />}
         </div>
       </main>
+
+      {/* Lesson Builder Modal */}
+      <LessonBuilder 
+        open={lessonBuilderOpen} 
+        onClose={() => {
+          setLessonBuilderOpen(false);
+          setSelectedExercisesForLesson([]);
+        }}
+        initialExercises={selectedExercisesForLesson}
+      />
     </div>
   );
 };
@@ -233,120 +240,12 @@ const DashboardView: React.FC<{
   </div>
 );
 
-const ClassesView = () => <ClassesManager />;
-
-const LibraryView: React.FC<{ exercises: DbExercise[]; subjects: { id: string; name: string }[]; selectedSubject: string | null; onSubjectChange: (s: string | null) => void; isLoading: boolean }> = ({ exercises, subjects, selectedSubject, onSubjectChange, isLoading }) => {
-  const navigate = useNavigate();
-  const [previewExercise, setPreviewExercise] = useState<DbExercise | null>(null);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><input type="text" placeholder="Пошук вправ..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary transition-all" /></div>
-        <div className="flex gap-2">
-          <Button variant={selectedSubject === null ? "default" : "outline"} onClick={() => onSubjectChange(null)}>Всі</Button>
-          {subjects.map(subject => (<Button key={subject.id} variant={selectedSubject === subject.id ? "default" : "outline"} onClick={() => onSubjectChange(subject.id)}>{subject.name === 'Математика' ? <Calculator className="mr-2 h-4 w-4" /> : <BookOpen className="mr-2 h-4 w-4" />}{subject.name}</Button>))}
-        </div>
-      </div>
-      {isLoading ? <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {exercises.map(exercise => (
-            <Card key={exercise.id} className="overflow-hidden group hover:shadow-lg transition-all">
-              <div 
-                className="h-24 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center cursor-pointer"
-                onClick={() => setPreviewExercise(exercise)}
-              >
-                <span className="text-5xl group-hover:scale-110 transition-transform">{exercise.thumbnail_emoji}</span>
-              </div>
-              <CardContent className="p-5">
-                <h3 
-                  className="text-lg font-bold text-foreground mb-2 cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setPreviewExercise(exercise)}
-                >
-                  {exercise.title}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{exercise.description}</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant={exercise.difficulty === 'EASY' ? 'easy' : exercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}>{difficultyLabels[exercise.difficulty]}</Badge>
-                  <Badge variant="secondary">{exerciseTypeLabels[exercise.type]}</Badge>
-                  <Badge variant="outline">{exercise.grade_number} клас</Badge>
-                </div>
-                <div className="flex gap-2 pt-3 border-t border-border">
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => navigate(`/play/game/${exercise.id}`)}
-                  >
-                    <Play className="mr-1 h-4 w-4" />
-                    Грати
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setPreviewExercise(exercise)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  {exercise.type === 'EXTERNAL_LINK' && exercise.external_url && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => window.open(exercise.external_url!, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Preview Dialog */}
-      <Dialog open={!!previewExercise} onOpenChange={() => setPreviewExercise(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <span className="text-4xl">{previewExercise?.thumbnail_emoji}</span>
-              <span>{previewExercise?.title}</span>
-            </DialogTitle>
-          </DialogHeader>
-          {previewExercise && (
-            <div className="space-y-4">
-              <p className="text-muted-foreground">{previewExercise.description}</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={previewExercise.difficulty === 'EASY' ? 'easy' : previewExercise.difficulty === 'MEDIUM' ? 'medium' : 'hard'}>
-                  {difficultyLabels[previewExercise.difficulty]}
-                </Badge>
-                <Badge variant="secondary">{exerciseTypeLabels[previewExercise.type]}</Badge>
-                <Badge variant="outline">{previewExercise.grade_number} клас</Badge>
-                <Badge variant="outline">~{previewExercise.estimated_time} хв</Badge>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button className="flex-1" onClick={() => {
-                  setPreviewExercise(null);
-                  navigate(`/play/game/${previewExercise.id}`);
-                }}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Почати гру
-                </Button>
-                {previewExercise.type === 'EXTERNAL_LINK' && previewExercise.external_url && (
-                  <Button variant="outline" onClick={() => window.open(previewExercise.external_url!, '_blank')}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Відкрити
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-const AnalyticsView = () => <StudentProgressTracker />;
-const SettingsView = () => (<div className="text-center py-20"><Settings className="h-16 w-16 text-muted-foreground mx-auto mb-4" /><h2 className="text-2xl font-bold text-foreground mb-2">Налаштування</h2><p className="text-muted-foreground">Налаштування профілю та системи.</p></div>);
+const SettingsView = () => (
+  <div className="text-center py-20">
+    <Settings className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+    <h2 className="text-2xl font-bold text-foreground mb-2">Налаштування</h2>
+    <p className="text-muted-foreground">Налаштування профілю та системи.</p>
+  </div>
+);
 
 export default Dashboard;
