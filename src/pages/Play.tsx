@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   GraduationCap, Home, Star, ArrowRight, Sparkles,
-  BookOpen, Calculator, Loader2, Users, Play, Eye, ExternalLink
+  BookOpen, Calculator, Loader2, Users, Play, Eye, ExternalLink, LayoutDashboard
 } from 'lucide-react';
 import { useExercises, useSubjects, DbExercise } from '@/hooks/useExercises';
 import { useAllStudents } from '@/hooks/useStudentProgress';
@@ -101,9 +101,9 @@ const PlayPage = () => {
             <span className="text-xl font-extrabold text-primary">УкрШкола</span>
           </Link>
           <Button variant="outline" size="sm" asChild>
-            <Link to="/">
-              <Home className="mr-2 h-4 w-4" />
-              Головна
+            <Link to="/dashboard">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Меню вчителя
             </Link>
           </Button>
         </div>
