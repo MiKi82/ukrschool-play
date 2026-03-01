@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { DbExercise, useExercises, useSubjects } from '@/hooks/useExercises';
 import { useClasses } from '@/hooks/useClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 const difficultyLabels: Record<string, string> = {
@@ -34,35 +35,64 @@ const exerciseTypeLabels: Record<string, string> = {
   REBUS: 'Ребус',
 };
 
+export interface LessonEditData {
+  id: string;
+  title: string;
+  exercises: DbExercise[];
+  classGroupId?: string | null;
+  dueDate?: string | null;
+}
+
 interface LessonBuilderProps {
   open: boolean;
   onClose: () => void;
   initialExercises?: DbExercise[];
+  editLesson?: LessonEditData | null;
 }
 
-const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExercises = [] }) => {
+const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExercises = [], editLesson = null }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: classes = [] } = useClasses();
   const { data: allExercises = [], isLoading: exercisesLoading } = useExercises();
   const { data: subjects = [] } = useSubjects();
   
   const [lessonTitle, setLessonTitle] = useState('');
-  const [exercises, setExercises] = useState<DbExercise[]>(initialExercises);
+  const [exercises, setExercises] = useState<DbExercise[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Drag-and-drop: only commit reorder on drop, not on hover
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   
   // Library filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
-  // Update exercises when initialExercises changes
-  React.useEffect(() => {
-    if (initialExercises.length > 0) {
-      setExercises(initialExercises);
+  // Track whether form has been initialized for this open cycle
+  const initializedRef = useRef(false);
+
+  // Initialize form state when dialog opens
+  useEffect(() => {
+    if (open && !initializedRef.current) {
+      initializedRef.current = true;
+      if (editLesson) {
+        setLessonTitle(editLesson.title);
+        setExercises(editLesson.exercises);
+        setSelectedClassId(editLesson.classGroupId || null);
+        setDueDate(editLesson.dueDate ? editLesson.dueDate.split('T')[0] : '');
+      } else if (initialExercises.length > 0) {
+        setExercises(initialExercises);
+      }
     }
-  }, [initialExercises]);
+    if (!open) {
+      initializedRef.current = false;
+    }
+  }, [open, editLesson, initialExercises]);
+
+  const isEditMode = !!editLesson;
 
   const totalTime = exercises.reduce((sum, ex) => sum + ex.estimated_time, 0);
 
@@ -91,24 +121,40 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
     setExercises(prev => [...prev, exercise]);
   };
 
-  // Drag and drop handlers
+  // Stable drag-and-drop: track drop target visually, reorder only on drop
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    const newExercises = [...exercises];
-    const [draggedItem] = newExercises.splice(draggedIndex, 1);
-    newExercises.splice(index, 0, draggedItem);
-    setExercises(newExercises);
-    setDraggedIndex(index);
+    if (draggedIndex === null || draggedIndex === index) {
+      if (dropTargetIndex !== null && draggedIndex === index) setDropTargetIndex(null);
+      return;
+    }
+    setDropTargetIndex(index);
   };
+
+  const handleDrop = useCallback((e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      setDropTargetIndex(null);
+      return;
+    }
+    setExercises(prev => {
+      const next = [...prev];
+      const [item] = next.splice(draggedIndex, 1);
+      next.splice(targetIndex, 0, item);
+      return next;
+    });
+    setDraggedIndex(null);
+    setDropTargetIndex(null);
+  }, [draggedIndex]);
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
+    setDropTargetIndex(null);
   };
 
   // Move exercise up/down
@@ -116,9 +162,11 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= exercises.length) return;
 
-    const newExercises = [...exercises];
-    [newExercises[index], newExercises[newIndex]] = [newExercises[newIndex], newExercises[index]];
-    setExercises(newExercises);
+    setExercises(prev => {
+      const next = [...prev];
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
   };
 
   // Remove exercise
@@ -126,7 +174,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
     setExercises(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Save lesson and create assignment
+  // Save lesson (create or update) with rollback on failure
   const handleSave = async () => {
     if (!lessonTitle.trim()) {
       toast.error('Введіть назву уроку');
@@ -143,55 +191,113 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
 
     setIsSaving(true);
     try {
-      // Create lesson
-      const { data: lesson, error: lessonError } = await supabase
-        .from('lessons')
-        .insert({
-          title: lessonTitle,
-          teacher_id: user.id,
-        })
-        .select()
-        .single();
+      if (isEditMode) {
+        // --- UPDATE existing lesson ---
+        const lessonId = editLesson!.id;
 
-      if (lessonError) throw lessonError;
+        // Update lesson title
+        const { error: updateError } = await supabase
+          .from('lessons')
+          .update({ title: lessonTitle })
+          .eq('id', lessonId);
+        if (updateError) throw updateError;
 
-      // Add exercises to lesson
-      const lessonExercises = exercises.map((ex, index) => ({
-        lesson_id: lesson.id,
-        exercise_id: ex.id,
-        order_index: index,
-      }));
+        // Replace lesson_exercises: delete old, insert new
+        const { error: deleteExError } = await supabase
+          .from('lesson_exercises')
+          .delete()
+          .eq('lesson_id', lessonId);
+        if (deleteExError) throw deleteExError;
 
-      const { error: exercisesError } = await supabase
-        .from('lesson_exercises')
-        .insert(lessonExercises);
+        const lessonExercises = exercises.map((ex, index) => ({
+          lesson_id: lessonId,
+          exercise_id: ex.id,
+          order_index: index,
+        }));
 
-      if (exercisesError) throw exercisesError;
+        const { error: insertExError } = await supabase
+          .from('lesson_exercises')
+          .insert(lessonExercises);
+        if (insertExError) throw insertExError;
 
-      // Create assignment if class is selected
-      if (selectedClassId) {
-        const { error: assignmentError } = await supabase
+        // Handle assignment: delete old assignments for this lesson, re-create if class selected
+        const { error: deleteAssignError } = await supabase
           .from('assignments')
-          .insert({
-            lesson_id: lesson.id,
-            class_group_id: selectedClassId,
-            due_date: dueDate || null,
-          });
+          .delete()
+          .eq('lesson_id', lessonId);
+        if (deleteAssignError) throw deleteAssignError;
 
-        if (assignmentError) throw assignmentError;
+        if (selectedClassId) {
+          const { error: assignError } = await supabase
+            .from('assignments')
+            .insert({
+              lesson_id: lessonId,
+              class_group_id: selectedClassId,
+              due_date: dueDate || null,
+            });
+          if (assignError) throw assignError;
+        }
+
+        toast.success('Урок успішно оновлено!');
+      } else {
+        // --- CREATE new lesson ---
+        const { data: lesson, error: lessonError } = await supabase
+          .from('lessons')
+          .insert({
+            title: lessonTitle,
+            teacher_id: user.id,
+          })
+          .select()
+          .single();
+        if (lessonError) throw lessonError;
+
+        const lessonExercises = exercises.map((ex, index) => ({
+          lesson_id: lesson.id,
+          exercise_id: ex.id,
+          order_index: index,
+        }));
+
+        const { error: exercisesError } = await supabase
+          .from('lesson_exercises')
+          .insert(lessonExercises);
+
+        if (exercisesError) {
+          // Rollback: delete the partially created lesson
+          await supabase.from('lessons').delete().eq('id', lesson.id);
+          throw exercisesError;
+        }
+
+        if (selectedClassId) {
+          const { error: assignmentError } = await supabase
+            .from('assignments')
+            .insert({
+              lesson_id: lesson.id,
+              class_group_id: selectedClassId,
+              due_date: dueDate || null,
+            });
+
+          if (assignmentError) {
+            // Rollback: delete exercises and lesson
+            await supabase.from('lesson_exercises').delete().eq('lesson_id', lesson.id);
+            await supabase.from('lessons').delete().eq('id', lesson.id);
+            throw assignmentError;
+          }
+        }
+
+        toast.success('Урок успішно створено!');
       }
 
-      toast.success('Урок успішно створено!');
-      handleClose();
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      resetAndClose();
     } catch (error) {
-      console.error('Error creating lesson:', error);
-      toast.error('Помилка при створенні уроку');
+      console.error('Error saving lesson:', error);
+      toast.error(isEditMode ? 'Помилка при оновленні уроку' : 'Помилка при створенні уроку');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleClose = () => {
+  const resetAndClose = () => {
     setLessonTitle('');
     setExercises([]);
     setSelectedClassId(null);
@@ -201,13 +307,22 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
     onClose();
   };
 
+  // Prevent accidental close: only close on explicit cancel/save
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      // User clicked overlay or pressed Escape — only close, don't reset yet
+      // We reset in resetAndClose which is called from cancel button and after save
+      resetAndClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Конструктор уроку
+            {isEditMode ? 'Редагувати урок' : 'Конструктор уроку'}
           </DialogTitle>
         </DialogHeader>
 
@@ -262,9 +377,12 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
                       draggable
                       onDragStart={() => handleDragStart(index)}
                       onDragOver={(e) => handleDragOver(e, index)}
+                      onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
                       className={`cursor-move transition-all ${
                         draggedIndex === index ? 'opacity-50 scale-95' : ''
+                      } ${
+                        dropTargetIndex === index ? 'border-primary border-2' : ''
                       }`}
                     >
                       <CardContent className="p-3">
@@ -448,7 +566,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
         </Tabs>
 
         <DialogFooter className="gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={resetAndClose}>
             Скасувати
           </Button>
           <Button onClick={handleSave} disabled={isSaving || exercises.length === 0}>
@@ -457,7 +575,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                Зберегти урок
+                {isEditMode ? 'Оновити урок' : 'Зберегти урок'}
               </>
             )}
           </Button>

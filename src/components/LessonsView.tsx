@@ -27,19 +27,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  BookOpen, Calendar, Clock, Users, Trash2, Play, 
+  BookOpen, Calendar, Clock, Users, Trash2, Play, Edit2,
   GripVertical, Loader2, FileText, User 
 } from 'lucide-react';
 import { useLessons, useDeleteLesson, Lesson } from '@/hooks/useLessons';
 import { useClasses, useStudentsByClass, StudentProfile } from '@/hooks/useClasses';
+import { useExercises, DbExercise } from '@/hooks/useExercises';
+import { LessonEditData } from '@/components/LessonBuilder';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { uk } from 'date-fns/locale';
 
-const LessonsView: React.FC = () => {
+interface LessonsViewProps {
+  onEditLesson?: (lesson: LessonEditData) => void;
+}
+
+const LessonsView: React.FC<LessonsViewProps> = ({ onEditLesson }) => {
   const navigate = useNavigate();
   const { data: lessons = [], isLoading } = useLessons();
   const { data: classes = [] } = useClasses();
+  const { data: allExercises = [] } = useExercises();
   const deleteLesson = useDeleteLesson();
   
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -63,6 +70,51 @@ const LessonsView: React.FC = () => {
     } catch (error) {
       toast.error('Помилка при видаленні уроку');
     }
+  };
+
+  const handleEdit = (lesson: Lesson) => {
+    if (!onEditLesson) return;
+
+    // Build exercise list from lesson_exercises, sorted by order_index
+    const sorted = [...(lesson.lesson_exercises || [])].sort((a, b) => a.order_index - b.order_index);
+    const exerciseObjects: DbExercise[] = sorted
+      .map(le => {
+        // Try to find full exercise data from allExercises cache
+        const full = allExercises.find(e => e.id === le.exercise_id);
+        if (full) return full;
+        // Fallback to partial data from the join
+        if (le.exercise) {
+          return {
+            id: le.exercise.id,
+            title: le.exercise.title,
+            thumbnail_emoji: le.exercise.thumbnail_emoji,
+            type: le.exercise.type as DbExercise['type'],
+            difficulty: le.exercise.difficulty as DbExercise['difficulty'],
+            estimated_time: le.exercise.estimated_time,
+            description: null,
+            subject_id: '',
+            topic_id: null,
+            grade_number: 0,
+            content_json: {},
+            external_url: null,
+            created_at: '',
+            updated_at: '',
+          } as DbExercise;
+        }
+        return null;
+      })
+      .filter(Boolean) as DbExercise[];
+
+    // Get first assignment's class and due date
+    const firstAssignment = lesson.assignments?.[0];
+
+    onEditLesson({
+      id: lesson.id,
+      title: lesson.title,
+      exercises: exerciseObjects,
+      classGroupId: firstAssignment?.class_group_id || null,
+      dueDate: firstAssignment?.due_date || null,
+    });
   };
 
   const openStudentSelection = (lesson: Lesson) => {
@@ -91,7 +143,6 @@ const LessonsView: React.FC = () => {
     
     const firstExercise = sortedExercises[0].exercise;
     if (firstExercise) {
-      // Store lesson context in sessionStorage for navigation between exercises
       sessionStorage.setItem('currentLesson', JSON.stringify({
         lessonId: lessonToStart.id,
         lessonTitle: lessonToStart.title,
@@ -177,17 +228,30 @@ const LessonsView: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLessonToDelete(lesson);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onEditLesson && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(lesson);
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLessonToDelete(lesson);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
@@ -332,10 +396,23 @@ const LessonsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Start Lesson Button */}
-              <div className="pt-4 border-t">
+              {/* Action buttons */}
+              <div className="pt-4 border-t flex gap-2">
+                {onEditLesson && (
+                  <Button 
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      handleEdit(selectedLesson);
+                      setSelectedLesson(null);
+                    }}
+                  >
+                    <Edit2 className="h-5 w-5 mr-2" />
+                    Редагувати
+                  </Button>
+                )}
                 <Button 
-                  className="w-full" 
+                  className="flex-1" 
                   size="lg"
                   onClick={() => {
                     openStudentSelection(selectedLesson);
