@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, XCircle, RotateCcw, HelpCircle } from 'lucide-react';
@@ -13,9 +13,15 @@ export interface CrosswordClue {
   col: number;
 }
 
-interface CrosswordGameProps {
-  clues: CrosswordClue[];
+export interface CrosswordVariant {
   gridSize: number;
+  clues: CrosswordClue[];
+}
+
+interface CrosswordGameProps {
+  clues?: CrosswordClue[];
+  gridSize?: number;
+  variants?: CrosswordVariant[];
   onComplete: (score: number, timeSpent: number) => void;
 }
 
@@ -27,10 +33,29 @@ interface Cell {
 }
 
 export const CrosswordGame: React.FC<CrosswordGameProps> = ({
-  clues,
-  gridSize,
+  clues: directClues,
+  gridSize: directGridSize,
+  variants,
   onComplete,
 }) => {
+  // Pick a random variant once on mount (stable via ref)
+  const variantIndexRef = useRef<number>(
+    variants && variants.length > 0 ? Math.floor(Math.random() * variants.length) : -1
+  );
+
+  const activeVariant = useMemo(() => {
+    if (variants && variants.length > 0) {
+      return variants[variantIndexRef.current];
+    }
+    if (directClues && directGridSize) {
+      return { gridSize: directGridSize, clues: directClues };
+    }
+    return null;
+  }, [variants, directClues, directGridSize]);
+
+  const clues = activeVariant?.clues || [];
+  const gridSize = activeVariant?.gridSize || 8;
+
   const [grid, setGrid] = useState<Cell[][]>([]);
   const [userInputs, setUserInputs] = useState<string[][]>([]);
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -39,7 +64,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [startTime, setStartTime] = useState(Date.now());
 
-  // Initialize grid
+  // Build grid from clues
   useEffect(() => {
     const newGrid: Cell[][] = Array(gridSize)
       .fill(null)
@@ -58,7 +83,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       letters.forEach((letter, i) => {
         const row = clue.direction === 'down' ? clue.row + i : clue.row;
         const col = clue.direction === 'across' ? clue.col + i : clue.col;
-        if (row < gridSize && col < gridSize) {
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
           newGrid[row][col] = {
             letter,
             isBlocked: false,
@@ -75,11 +100,11 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
 
   const handleCellClick = (row: number, col: number) => {
     if (grid[row]?.[col]?.isBlocked) return;
-    
+
     const cellClues = grid[row][col].clueIds;
     if (cellClues.length === 0) return;
 
-    // If clicking the same cell again and there are multiple clues, toggle between them
+    // Toggle between clues on repeated click of same cell
     if (selectedCell?.row === row && selectedCell?.col === col && cellClues.length > 1 && selectedClue) {
       const currentClueIndex = cellClues.indexOf(selectedClue.id);
       const nextClueId = cellClues[(currentClueIndex + 1) % cellClues.length];
@@ -89,15 +114,14 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
         return;
       }
     }
-    
+
     setSelectedCell({ row, col });
-    
-    // If we already have a selected clue that contains this cell, keep it
+
+    // Keep current clue if it contains this cell
     if (selectedClue && cellClues.includes(selectedClue.id)) {
       return;
     }
-    
-    // Otherwise pick the first clue for this cell
+
     const clue = clues.find((c) => c.id === cellClues[0]);
     if (clue) setSelectedClue(clue);
   };
@@ -109,7 +133,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       const { row, col } = selectedCell;
       const letter = e.key.toUpperCase();
 
-      if (/^[А-ЯІЇЄҐ]$/.test(letter) || /^[A-Z]$/.test(letter)) {
+      if (/^[А-ЯІЇЄҐ]$/.test(letter) || /^[A-Z0-9]$/.test(letter)) {
         const newInputs = userInputs.map(r => [...r]);
         newInputs[row][col] = letter;
         setUserInputs(newInputs);
@@ -174,6 +198,10 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
   };
 
   const resetGame = () => {
+    // Pick a new random variant on restart
+    if (variants && variants.length > 0) {
+      variantIndexRef.current = Math.floor(Math.random() * variants.length);
+    }
     setUserInputs(
       Array(gridSize)
         .fill(null)
@@ -206,6 +234,14 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
 
     return classes;
   };
+
+  if (!activeVariant || clues.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">Дані кросворду відсутні або пошкоджені</p>
+      </Card>
+    );
+  }
 
   if (isComplete) {
     return (

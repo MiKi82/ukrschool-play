@@ -440,8 +440,14 @@ const GamePage = () => {
             <ExternalLinkViewer key={attemptKey} title={exercise.title} description={exercise.description || ''} url={exercise.external_url} onComplete={handleComplete} />
           )}
 
-          {exercise.type === 'CROSSWORD' && contentJson.clues && (
-            <CrosswordGame key={attemptKey} clues={contentJson.clues as CrosswordClue[]} gridSize={(contentJson.gridSize as number) || 10} onComplete={handleComplete} />
+          {exercise.type === 'CROSSWORD' && (contentJson.variants || contentJson.clues) && (
+            <CrosswordGame
+              key={attemptKey}
+              variants={contentJson.variants as any}
+              clues={contentJson.clues as CrosswordClue[]}
+              gridSize={(contentJson.gridSize as number) || 10}
+              onComplete={handleComplete}
+            />
           )}
 
           {exercise.type === 'FILL_IN' && contentJson.sentences && (
