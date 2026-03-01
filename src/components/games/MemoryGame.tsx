@@ -23,9 +23,10 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
   const [flippedCards, setFlippedCards] = useState<string[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
   const [isComplete, setIsComplete] = useState(false);
   const hasCompletedRef = useRef(false);
+  const isProcessingRef = useRef(false);
 
   // Initialize cards
   useEffect(() => {
@@ -36,13 +37,13 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
         { id: `${pair.id}-right`, content: pair.right, pairId: pair.id, isFlipped: false, isMatched: false }
       );
     });
-    // Shuffle
     const shuffled = allCards.sort(() => Math.random() - 0.5);
     setCards(shuffled);
   }, [pairs]);
 
   const handleCardClick = useCallback((cardId: string) => {
-    if (flippedCards.length >= 2) return;
+    // Prevent clicking during processing or when 2 cards already flipped
+    if (flippedCards.length >= 2 || isProcessingRef.current) return;
     
     const card = cards.find(c => c.id === cardId);
     if (!card || card.isMatched || flippedCards.includes(cardId)) return;
@@ -51,24 +52,25 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
     setFlippedCards(newFlipped);
 
     if (newFlipped.length === 2) {
+      isProcessingRef.current = true;
       setMoves(m => m + 1);
       const [first, second] = newFlipped;
       const card1 = cards.find(c => c.id === first);
       const card2 = cards.find(c => c.id === second);
 
       if (card1 && card2 && card1.pairId === card2.pairId) {
-        // Match found!
         setTimeout(() => {
           setMatchedPairs(prev => [...prev, card1.pairId]);
           setCards(prev => prev.map(c => 
             c.pairId === card1.pairId ? { ...c, isMatched: true } : c
           ));
           setFlippedCards([]);
+          isProcessingRef.current = false;
         }, 500);
       } else {
-        // No match
         setTimeout(() => {
           setFlippedCards([]);
+          isProcessingRef.current = false;
         }, 1000);
       }
     }
@@ -82,7 +84,10 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
       const maxScore = 100;
       const minMoves = pairs.length;
-      const score = Math.max(0, Math.floor(maxScore * (minMoves / moves)));
+      // Safe division: guard against moves being 0
+      const score = moves > 0 
+        ? Math.min(maxScore, Math.max(0, Math.floor(maxScore * (minMoves / moves))))
+        : maxScore;
       onComplete(score, timeSpent);
     }
   }, [matchedPairs.length, pairs.length, moves, startTime, onComplete]);
@@ -92,7 +97,9 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
     setMatchedPairs([]);
     setMoves(0);
     setIsComplete(false);
+    setStartTime(Date.now());
     hasCompletedRef.current = false;
+    isProcessingRef.current = false;
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setCards(shuffled.map(c => ({ ...c, isMatched: false })));
   };
@@ -135,7 +142,6 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
                   (flippedCards.includes(card.id) || card.isMatched) && "rotate-y-180"
                 )}
               >
-                {/* Back of card */}
                 <Card
                   variant="interactive"
                   className={cn(
@@ -145,7 +151,6 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ pairs, onComplete }) => 
                 >
                   <span className="text-4xl">❓</span>
                 </Card>
-                {/* Front of card */}
                 <Card
                   className={cn(
                     "absolute inset-0 flex items-center justify-center backface-hidden rotate-y-180",

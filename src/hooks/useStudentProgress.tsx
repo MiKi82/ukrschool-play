@@ -70,18 +70,28 @@ export function useStudentResults(studentId: string | null) {
 export function useStudentProgress(studentId: string | null) {
   const { data: results = [], isLoading } = useStudentResults(studentId);
 
+  // Deduplicate by exercise_id: keep only the latest attempt per exercise
+  const latestByExercise = new Map<string, StudentResult>();
+  results.forEach((result) => {
+    const existing = latestByExercise.get(result.exercise_id);
+    if (!existing || new Date(result.completed_at) > new Date(existing.completed_at)) {
+      latestByExercise.set(result.exercise_id, result);
+    }
+  });
+  const dedupedResults = Array.from(latestByExercise.values());
+
   const progress: StudentProgress = {
     totalExercises: 0,
-    completedExercises: results.length,
+    completedExercises: dedupedResults.length, // Count unique exercises, not raw rows
     averageScore: 0,
     totalTimeSpent: 0,
     bySubject: {},
   };
 
-  if (results.length > 0) {
+  if (dedupedResults.length > 0) {
     let totalScore = 0;
     
-    results.forEach((result) => {
+    dedupedResults.forEach((result) => {
       totalScore += result.score;
       progress.totalTimeSpent += result.time_spent;
       
@@ -104,15 +114,15 @@ export function useStudentProgress(studentId: string | null) {
       }
     });
 
-    progress.averageScore = Math.round(totalScore / results.length);
+    progress.averageScore = Math.round(totalScore / dedupedResults.length);
     
-    // Calculate average per subject
     Object.keys(progress.bySubject).forEach((subjectId) => {
       const subject = progress.bySubject[subjectId];
       subject.averageScore = Math.round(subject.averageScore / subject.completed);
     });
   }
 
+  // Return ALL results for history, but use deduplicated for progress metrics
   return { progress, results, isLoading };
 }
 

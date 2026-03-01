@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,9 +21,10 @@ import { useExercise } from '@/hooks/useExercises';
 import { useSaveResult } from '@/hooks/useResults';
 import { useCheckAndAwardAchievements, Achievement } from '@/hooks/useAchievements';
 import { useClasses, useStudentsByClass, StudentProfile } from '@/hooks/useClasses';
-import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer, CrosswordGame, FillInGame } from '@/components/games';
+import { MemoryGame, QuizGame, DragDropGame, ExternalLinkViewer, CrosswordGame, FillInGame, RebusGame } from '@/components/games';
 import { MatchingPair, QuizQuestion, DragDropItem, DragDropZone, FillInBlank } from '@/types';
 import { CrosswordClue } from '@/components/games/CrosswordGame';
+import { RebusItem } from '@/components/games/RebusGame';
 import { AchievementNotification } from '@/components/AchievementNotification';
 import { toast } from 'sonner';
 
@@ -35,6 +36,7 @@ interface LessonContext {
   studentId: string;
   studentName: string;
   studentEmoji: string;
+  assignmentId?: string;
 }
 
 const GamePage = () => {
@@ -42,12 +44,13 @@ const GamePage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [gameResult, setGameResult] = useState<{ score: number; timeSpent: number } | null>(null);
+  const [isSavingResult, setIsSavingResult] = useState(false);
   const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  const [attemptKey, setAttemptKey] = useState(0); // Force remount games on replay
+  const hasSavedRef = useRef(false); // Prevent double-save
   
-  // Lesson context from sessionStorage
   const [lessonContext, setLessonContext] = useState<LessonContext | null>(null);
   
-  // Student switch dialog
   const [switchStudentOpen, setSwitchStudentOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
@@ -59,13 +62,15 @@ const GamePage = () => {
   const saveResult = useSaveResult();
   const checkAchievements = useCheckAndAwardAchievements();
 
+  // Read student from URL query params for free play
+  const urlStudentId = searchParams.get('student');
+
   // Load lesson context from sessionStorage
   useEffect(() => {
     const stored = sessionStorage.getItem('currentLesson');
     if (stored) {
       try {
         const context = JSON.parse(stored) as LessonContext;
-        // Update currentIndex based on current exerciseId
         const currentIdx = context.exercises.indexOf(exerciseId || '');
         if (currentIdx !== -1) {
           context.currentIndex = currentIdx;
@@ -77,6 +82,11 @@ const GamePage = () => {
       }
     }
   }, [exerciseId]);
+
+  // Reset save guard when exercise changes or replay
+  useEffect(() => {
+    hasSavedRef.current = false;
+  }, [exerciseId, attemptKey]);
 
   const updateLessonStudent = (student: StudentProfile) => {
     if (lessonContext) {
@@ -99,6 +109,7 @@ const GamePage = () => {
     if (lessonContext && lessonContext.currentIndex < lessonContext.exercises.length - 1) {
       const nextExerciseId = lessonContext.exercises[lessonContext.currentIndex + 1];
       setGameResult(null);
+      setAttemptKey(k => k + 1);
       navigate(`/play/game/${nextExerciseId}`);
     }
   };
@@ -108,12 +119,18 @@ const GamePage = () => {
     navigate('/dashboard');
   };
 
+  // Determine effective studentId: lesson context takes priority, then URL param
+  const effectiveStudentId = lessonContext?.studentId || urlStudentId || null;
+
   const handleComplete = useCallback((score: number, timeSpent: number) => {
-    setGameResult({ score, timeSpent });
+    // Prevent double-save for the same attempt
+    if (hasSavedRef.current) return;
+    hasSavedRef.current = true;
+
+    const studentId = effectiveStudentId;
     
-    // Save result to database if we have lesson context with student
-    const studentId = lessonContext?.studentId;
     if (studentId && exerciseId) {
+      setIsSavingResult(true);
       saveResult.mutate({
         studentId,
         exerciseId,
@@ -121,10 +138,13 @@ const GamePage = () => {
         maxScore: 100,
         timeSpent,
         mistakes: Math.round(Math.max(0, 100 - score) / 10),
+        assignmentId: lessonContext?.assignmentId,
       }, {
         onSuccess: () => {
+          // Only show result after confirmed save
+          setGameResult({ score, timeSpent });
+          setIsSavingResult(false);
           toast.success('Результат збережено!');
-          // Check for new achievements
           checkAchievements.mutate(
             { studentId, score, timeSpent },
             {
@@ -137,11 +157,16 @@ const GamePage = () => {
           );
         },
         onError: () => {
-          toast.error('Не вдалося зберегти результат');
+          setIsSavingResult(false);
+          hasSavedRef.current = false; // Allow retry
+          toast.error('Не вдалося зберегти результат. Спробуйте ще раз.');
         }
       });
+    } else {
+      // No student selected — show result immediately without saving
+      setGameResult({ score, timeSpent });
     }
-  }, [lessonContext?.studentId, exerciseId, saveResult, checkAchievements]);
+  }, [effectiveStudentId, exerciseId, saveResult, checkAchievements, lessonContext?.assignmentId]);
 
   if (isLoading) {
     return (
@@ -164,7 +189,19 @@ const GamePage = () => {
     );
   }
 
-  // Result screen with lesson navigation
+  // Saving indicator
+  if (isSavingResult) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="p-8 text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Зберігаємо результат...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Result screen
   if (gameResult) {
     const stars = Math.ceil(gameResult.score / 20);
     const hasNextExercise = lessonContext && lessonContext.currentIndex < lessonContext.exercises.length - 1;
@@ -172,7 +209,6 @@ const GamePage = () => {
     
     return (
       <div className="min-h-screen bg-gradient-to-b from-secondary/20 via-primary/10 to-background flex items-center justify-center p-4">
-        {/* Achievement Notification */}
         {newAchievements.length > 0 && (
           <AchievementNotification
             achievements={newAchievements}
@@ -181,7 +217,6 @@ const GamePage = () => {
         )}
 
         <Card className="max-w-md w-full p-8 text-center">
-          {/* Lesson context info */}
           {lessonContext && (
             <div className="mb-4 pb-4 border-b">
               <Badge variant="secondary" className="mb-2">
@@ -220,7 +255,6 @@ const GamePage = () => {
           </p>
 
           <div className="flex flex-col gap-3">
-            {/* Lesson context buttons */}
             {lessonContext && (
               <>
                 {hasNextExercise && (
@@ -244,7 +278,10 @@ const GamePage = () => {
               </>
             )}
             
-            <Button size="lg" variant="outline" onClick={() => setGameResult(null)}>
+            <Button size="lg" variant="outline" onClick={() => {
+              setGameResult(null);
+              setAttemptKey(k => k + 1);
+            }}>
               Грати ще раз
             </Button>
             
@@ -277,49 +314,30 @@ const GamePage = () => {
                 Обрати іншого учня
               </DialogTitle>
             </DialogHeader>
-
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Клас</label>
-                <Select
-                  value={selectedClassId}
-                  onValueChange={(value) => {
-                    setSelectedClassId(value);
-                    setSelectedStudent(null);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Оберіть клас" />
-                  </SelectTrigger>
+                <Select value={selectedClassId} onValueChange={(value) => { setSelectedClassId(value); setSelectedStudent(null); }}>
+                  <SelectTrigger><SelectValue placeholder="Оберіть клас" /></SelectTrigger>
                   <SelectContent>
                     {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name} ({cls.grade} клас)
-                      </SelectItem>
+                      <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.grade} клас)</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
               {selectedClassId && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Учень</label>
                   {studentsInClass.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">
-                      В цьому класі немає учнів
-                    </p>
+                    <p className="text-sm text-muted-foreground py-2">В цьому класі немає учнів</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                       {studentsInClass.map((student) => (
-                        <button
-                          key={student.id}
-                          onClick={() => setSelectedStudent(student)}
+                        <button key={student.id} onClick={() => setSelectedStudent(student)}
                           className={`flex items-center gap-2 p-3 rounded-lg border transition-all text-left ${
-                            selectedStudent?.id === student.id
-                              ? 'border-primary bg-primary/10 ring-2 ring-primary'
-                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                          }`}
-                        >
+                            selectedStudent?.id === student.id ? 'border-primary bg-primary/10 ring-2 ring-primary' : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                          }`}>
                           <span className="text-2xl">{student.avatar_emoji}</span>
                           <span className="font-medium text-sm truncate">{student.nickname}</span>
                         </button>
@@ -329,22 +347,9 @@ const GamePage = () => {
                 </div>
               )}
             </div>
-
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setSwitchStudentOpen(false)}
-              >
-                Скасувати
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => selectedStudent && updateLessonStudent(selectedStudent)}
-                disabled={!selectedStudent}
-              >
-                Підтвердити
-              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setSwitchStudentOpen(false)}>Скасувати</Button>
+              <Button className="flex-1" onClick={() => selectedStudent && updateLessonStudent(selectedStudent)} disabled={!selectedStudent}>Підтвердити</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -356,7 +361,6 @@ const GamePage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-primary/5">
-      {/* Header */}
       <header className="py-4 px-4 border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -377,7 +381,6 @@ const GamePage = () => {
             </div>
           </div>
           
-          {/* Lesson context in header */}
           {lessonContext && (
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="hidden sm:flex">
@@ -386,10 +389,8 @@ const GamePage = () => {
               <div className="flex items-center gap-2 text-sm">
                 <span>{lessonContext.currentIndex + 1}/{lessonContext.exercises.length}</span>
               </div>
-              <button
-                onClick={() => setSwitchStudentOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
-              >
+              <button onClick={() => setSwitchStudentOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors">
                 <span className="text-lg">{lessonContext.studentEmoji}</span>
                 <span className="font-medium text-sm hidden sm:inline">{lessonContext.studentName}</span>
                 <RefreshCw className="h-3 w-3 text-muted-foreground" />
@@ -418,57 +419,44 @@ const GamePage = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Game Title (Mobile) */}
           <div className="md:hidden text-center mb-6">
             <span className="text-4xl mb-2 block">{exercise.thumbnail_emoji}</span>
             <h1 className="text-xl font-bold text-foreground">{exercise.title}</h1>
           </div>
 
-          {/* Game Component */}
           {exercise.type === 'QUIZ' && contentJson.questions && (
-            <QuizGame
-              questions={contentJson.questions as QuizQuestion[]}
-              onComplete={handleComplete}
-            />
+            <QuizGame key={attemptKey} questions={contentJson.questions as QuizQuestion[]} onComplete={handleComplete} />
           )}
 
           {exercise.type === 'MATCHING' && contentJson.pairs && (
-            <MemoryGame
-              pairs={contentJson.pairs as MatchingPair[]}
-              onComplete={handleComplete}
-            />
+            <MemoryGame key={attemptKey} pairs={contentJson.pairs as MatchingPair[]} onComplete={handleComplete} />
           )}
 
           {exercise.type === 'DRAG_DROP' && contentJson.zones && contentJson.items && (
-            <DragDropGame
-              zones={contentJson.zones as DragDropZone[]}
-              items={contentJson.items as DragDropItem[]}
-              onComplete={handleComplete}
-            />
+            <DragDropGame key={attemptKey} zones={contentJson.zones as DragDropZone[]} items={contentJson.items as DragDropItem[]} onComplete={handleComplete} />
           )}
 
           {exercise.type === 'EXTERNAL_LINK' && exercise.external_url && (
-            <ExternalLinkViewer
-              title={exercise.title}
-              description={exercise.description || ''}
-              url={exercise.external_url}
-              onComplete={handleComplete}
-            />
+            <ExternalLinkViewer key={attemptKey} title={exercise.title} description={exercise.description || ''} url={exercise.external_url} onComplete={handleComplete} />
           )}
 
           {exercise.type === 'CROSSWORD' && contentJson.clues && (
-            <CrosswordGame
-              clues={contentJson.clues as CrosswordClue[]}
-              gridSize={(contentJson.gridSize as number) || 10}
-              onComplete={handleComplete}
-            />
+            <CrosswordGame key={attemptKey} clues={contentJson.clues as CrosswordClue[]} gridSize={(contentJson.gridSize as number) || 10} onComplete={handleComplete} />
           )}
 
           {exercise.type === 'FILL_IN' && contentJson.sentences && (
-            <FillInGame
-              sentences={contentJson.sentences as FillInBlank[]}
-              onComplete={handleComplete}
-            />
+            <FillInGame key={attemptKey} sentences={contentJson.sentences as FillInBlank[]} onComplete={handleComplete} />
+          )}
+
+          {exercise.type === 'REBUS' && contentJson.items && (
+            <RebusGame key={attemptKey} items={contentJson.items as RebusItem[]} onComplete={handleComplete} />
+          )}
+
+          {/* Fallback for unknown types */}
+          {!['QUIZ', 'MATCHING', 'DRAG_DROP', 'EXTERNAL_LINK', 'CROSSWORD', 'FILL_IN', 'REBUS'].includes(exercise.type) && (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">Тип вправи "{exercise.type}" не підтримується</p>
+            </Card>
           )}
         </div>
       </main>
@@ -482,49 +470,30 @@ const GamePage = () => {
               Обрати іншого учня
             </DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Клас</label>
-              <Select
-                value={selectedClassId}
-                onValueChange={(value) => {
-                  setSelectedClassId(value);
-                  setSelectedStudent(null);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Оберіть клас" />
-                </SelectTrigger>
+              <Select value={selectedClassId} onValueChange={(value) => { setSelectedClassId(value); setSelectedStudent(null); }}>
+                <SelectTrigger><SelectValue placeholder="Оберіть клас" /></SelectTrigger>
                 <SelectContent>
                   {classes.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name} ({cls.grade} клас)
-                    </SelectItem>
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.grade} клас)</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             {selectedClassId && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Учень</label>
                 {studentsInClass.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">
-                    В цьому класі немає учнів
-                  </p>
+                  <p className="text-sm text-muted-foreground py-2">В цьому класі немає учнів</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                     {studentsInClass.map((student) => (
-                      <button
-                        key={student.id}
-                        onClick={() => setSelectedStudent(student)}
+                      <button key={student.id} onClick={() => setSelectedStudent(student)}
                         className={`flex items-center gap-2 p-3 rounded-lg border transition-all text-left ${
-                          selectedStudent?.id === student.id
-                            ? 'border-primary bg-primary/10 ring-2 ring-primary'
-                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                      >
+                          selectedStudent?.id === student.id ? 'border-primary bg-primary/10 ring-2 ring-primary' : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        }`}>
                         <span className="text-2xl">{student.avatar_emoji}</span>
                         <span className="font-medium text-sm truncate">{student.nickname}</span>
                       </button>
@@ -534,22 +503,9 @@ const GamePage = () => {
               </div>
             )}
           </div>
-
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setSwitchStudentOpen(false)}
-            >
-              Скасувати
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => selectedStudent && updateLessonStudent(selectedStudent)}
-              disabled={!selectedStudent}
-            >
-              Підтвердити
-            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setSwitchStudentOpen(false)}>Скасувати</Button>
+            <Button className="flex-1" onClick={() => selectedStudent && updateLessonStudent(selectedStudent)} disabled={!selectedStudent}>Підтвердити</Button>
           </div>
         </DialogContent>
       </Dialog>

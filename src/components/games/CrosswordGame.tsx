@@ -37,7 +37,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
   const [selectedClue, setSelectedClue] = useState<CrosswordClue | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
 
   // Initialize grid
   useEffect(() => {
@@ -53,7 +53,6 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       .fill(null)
       .map(() => Array(gridSize).fill(''));
 
-    // Place words on grid
     clues.forEach((clue) => {
       const letters = clue.answer.toUpperCase().split('');
       letters.forEach((letter, i) => {
@@ -76,14 +75,31 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
 
   const handleCellClick = (row: number, col: number) => {
     if (grid[row]?.[col]?.isBlocked) return;
+    
+    const cellClues = grid[row][col].clueIds;
+    if (cellClues.length === 0) return;
+
+    // If clicking the same cell again and there are multiple clues, toggle between them
+    if (selectedCell?.row === row && selectedCell?.col === col && cellClues.length > 1 && selectedClue) {
+      const currentClueIndex = cellClues.indexOf(selectedClue.id);
+      const nextClueId = cellClues[(currentClueIndex + 1) % cellClues.length];
+      const nextClue = clues.find((c) => c.id === nextClueId);
+      if (nextClue) {
+        setSelectedClue(nextClue);
+        return;
+      }
+    }
+    
     setSelectedCell({ row, col });
     
-    // Find associated clue
-    const cellClues = grid[row][col].clueIds;
-    if (cellClues.length > 0) {
-      const clue = clues.find((c) => c.id === cellClues[0]);
-      if (clue) setSelectedClue(clue);
+    // If we already have a selected clue that contains this cell, keep it
+    if (selectedClue && cellClues.includes(selectedClue.id)) {
+      return;
     }
+    
+    // Otherwise pick the first clue for this cell
+    const clue = clues.find((c) => c.id === cellClues[0]);
+    if (clue) setSelectedClue(clue);
   };
 
   const handleKeyDown = useCallback(
@@ -94,11 +110,10 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       const letter = e.key.toUpperCase();
 
       if (/^[А-ЯІЇЄҐ]$/.test(letter) || /^[A-Z]$/.test(letter)) {
-        const newInputs = [...userInputs];
+        const newInputs = userInputs.map(r => [...r]);
         newInputs[row][col] = letter;
         setUserInputs(newInputs);
 
-        // Move to next cell
         if (selectedClue) {
           const nextRow = selectedClue.direction === 'down' ? row + 1 : row;
           const nextCol = selectedClue.direction === 'across' ? col + 1 : col;
@@ -107,11 +122,10 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
           }
         }
       } else if (e.key === 'Backspace') {
-        const newInputs = [...userInputs];
+        const newInputs = userInputs.map(r => [...r]);
         newInputs[row][col] = '';
         setUserInputs(newInputs);
 
-        // Move to previous cell
         if (selectedClue) {
           const prevRow = selectedClue.direction === 'down' ? row - 1 : row;
           const prevCol = selectedClue.direction === 'across' ? col - 1 : col;
@@ -129,9 +143,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const checkAnswers = () => {
-    setShowResults(true);
-    
+  const calculateScore = () => {
     let correct = 0;
     let total = 0;
 
@@ -139,38 +151,23 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       for (let col = 0; col < gridSize; col++) {
         if (!grid[row]?.[col]?.isBlocked) {
           total++;
-          if (userInputs[row][col] === grid[row][col].letter) {
+          if (userInputs[row]?.[col] === grid[row][col].letter) {
             correct++;
           }
         }
       }
     }
 
-    const score = Math.round((correct / total) * 100);
-    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    return { correct, total };
+  };
 
-    if (score === 100) {
-      setIsComplete(true);
-      onComplete(score, timeSpent);
-    }
+  const checkAnswers = () => {
+    setShowResults(true);
   };
 
   const handleComplete = () => {
-    let correct = 0;
-    let total = 0;
-
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        if (!grid[row]?.[col]?.isBlocked) {
-          total++;
-          if (userInputs[row][col] === grid[row][col].letter) {
-            correct++;
-          }
-        }
-      }
-    }
-
-    const score = Math.round((correct / total) * 100);
+    const { correct, total } = calculateScore();
+    const score = total > 0 ? Math.round((correct / total) * 100) : 0;
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     setIsComplete(true);
     onComplete(score, timeSpent);
@@ -186,6 +183,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
     setIsComplete(false);
     setSelectedCell(null);
     setSelectedClue(null);
+    setStartTime(Date.now());
   };
 
   const getCellClass = (row: number, col: number) => {
@@ -198,7 +196,7 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
       classes += 'ring-2 ring-primary border-primary ';
     }
 
-    if (showResults && userInputs[row][col]) {
+    if (showResults && userInputs[row]?.[col]) {
       if (userInputs[row][col] === cell.letter) {
         classes += 'bg-green-100 dark:bg-green-900/30 border-green-500 ';
       } else {
@@ -228,7 +226,6 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Grid */}
       <Card className="p-4 overflow-x-auto">
         <div
           className="grid gap-1 mx-auto"
@@ -261,7 +258,6 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
         </div>
       </Card>
 
-      {/* Selected Clue */}
       {selectedClue && (
         <Card className="p-4 bg-primary/5 border-primary/20">
           <div className="flex items-start gap-2">
@@ -276,7 +272,6 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
         </Card>
       )}
 
-      {/* Clues */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="p-4">
           <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
@@ -323,7 +318,6 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({
         </Card>
       </div>
 
-      {/* Controls */}
       <div className="flex justify-center gap-4">
         <Button variant="outline" onClick={resetGame}>
           <RotateCcw className="mr-2 h-4 w-4" />
