@@ -14,7 +14,7 @@ import { useLessons } from '@/hooks/useLessons';
 import ClassesManager from '@/components/ClassesManager';
 import StudentProgressTracker from '@/components/StudentProgressTracker';
 import LibraryView from '@/components/LibraryView';
-import LessonBuilder from '@/components/LessonBuilder';
+import LessonBuilder, { LessonEditData } from '@/components/LessonBuilder';
 import LessonsView from '@/components/LessonsView';
 
 type SidebarItem = 'dashboard' | 'classes' | 'library' | 'lessons' | 'analytics' | 'settings';
@@ -28,6 +28,7 @@ const Dashboard = () => {
   // Lesson builder state
   const [lessonBuilderOpen, setLessonBuilderOpen] = useState(false);
   const [selectedExercisesForLesson, setSelectedExercisesForLesson] = useState<DbExercise[]>([]);
+  const [editLessonData, setEditLessonData] = useState<LessonEditData | null>(null);
 
   const { data: exercises = [] } = useExercises();
   const { data: classes = [] } = useClasses();
@@ -52,7 +53,14 @@ const Dashboard = () => {
   ];
 
   const handleOpenLessonBuilder = (exercises: DbExercise[]) => {
+    setEditLessonData(null);
     setSelectedExercisesForLesson(exercises);
+    setLessonBuilderOpen(true);
+  };
+
+  const handleEditLesson = (lesson: LessonEditData) => {
+    setSelectedExercisesForLesson([]);
+    setEditLessonData(lesson);
     setLessonBuilderOpen(true);
   };
 
@@ -156,7 +164,7 @@ const Dashboard = () => {
           )}
           {activeItem === 'classes' && <ClassesManager />}
           {activeItem === 'library' && <LibraryView onOpenLessonBuilder={handleOpenLessonBuilder} />}
-          {activeItem === 'lessons' && <LessonsView />}
+          {activeItem === 'lessons' && <LessonsView onEditLesson={handleEditLesson} />}
           {activeItem === 'analytics' && <StudentProgressTracker />}
           {activeItem === 'settings' && <SettingsView />}
         </div>
@@ -168,8 +176,10 @@ const Dashboard = () => {
         onClose={() => {
           setLessonBuilderOpen(false);
           setSelectedExercisesForLesson([]);
+          setEditLessonData(null);
         }}
         initialExercises={selectedExercisesForLesson}
+        editLesson={editLessonData}
       />
     </div>
   );
