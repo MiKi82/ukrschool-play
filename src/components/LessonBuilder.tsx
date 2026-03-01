@@ -514,7 +514,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
             </div>
 
             {/* Available Exercises */}
-            <ScrollArea className="flex-1">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {exercisesLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -525,7 +525,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
                   <p>Вправ не знайдено</p>
                 </div>
               ) : (
-                <div className="space-y-2 pr-4">
+                <div className="space-y-2 pr-2">
                   {availableExercises.map(exercise => (
                     <Card 
                       key={exercise.id} 
@@ -561,7 +561,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
 
