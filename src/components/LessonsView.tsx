@@ -141,8 +141,19 @@ const LessonsView: React.FC<LessonsViewProps> = ({ onEditLesson }) => {
     const sortedExercises = lessonToStart.lesson_exercises
       ?.sort((a, b) => a.order_index - b.order_index) || [];
     
+    if (sortedExercises.length === 0) {
+      toast.error('В уроці немає вправ');
+      return;
+    }
+
     const firstExercise = sortedExercises[0].exercise;
     if (firstExercise) {
+      // Find assignment for the selected student's class (if any)
+      const studentClassId = selectedStudent.class_group_id;
+      const matchingAssignment = studentClassId 
+        ? lessonToStart.assignments?.find(a => a.class_group_id === studentClassId)
+        : undefined;
+
       sessionStorage.setItem('currentLesson', JSON.stringify({
         lessonId: lessonToStart.id,
         lessonTitle: lessonToStart.title,
@@ -150,7 +161,8 @@ const LessonsView: React.FC<LessonsViewProps> = ({ onEditLesson }) => {
         currentIndex: 0,
         studentId: selectedStudent.id,
         studentName: selectedStudent.nickname,
-        studentEmoji: selectedStudent.avatar_emoji
+        studentEmoji: selectedStudent.avatar_emoji,
+        assignmentId: matchingAssignment?.id || undefined,
       }));
       
       setStudentSelectOpen(false);

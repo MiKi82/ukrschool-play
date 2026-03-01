@@ -70,14 +70,12 @@ export function useCheckAndAwardAchievements() {
       score: number; 
       timeSpent: number;
     }) => {
-      // Get all achievements
       const { data: achievements } = await supabase
         .from('achievements')
         .select('*');
 
       if (!achievements) return [];
 
-      // Get student's current achievements
       const { data: earnedAchievements } = await supabase
         .from('student_achievements')
         .select('achievement_id')
@@ -85,13 +83,12 @@ export function useCheckAndAwardAchievements() {
 
       const earnedIds = new Set(earnedAchievements?.map(a => a.achievement_id) || []);
 
-      // Get student's exercise count
+      // These counts ALREADY include the just-saved result
       const { count: exerciseCount } = await supabase
         .from('assignment_results')
         .select('*', { count: 'exact', head: true })
         .eq('student_id', studentId);
 
-      // Get perfect score count
       const { count: perfectCount } = await supabase
         .from('assignment_results')
         .select('*', { count: 'exact', head: true })
@@ -110,11 +107,9 @@ export function useCheckAndAwardAchievements() {
             earned = (exerciseCount || 0) >= achievement.requirement_value;
             break;
           case 'perfect_scores':
-            if (score === 100) {
-              earned = ((perfectCount || 0) + 1) >= achievement.requirement_value;
-            } else {
-              earned = (perfectCount || 0) >= achievement.requirement_value;
-            }
+            // The current result is ALREADY saved and included in perfectCount.
+            // No need to add +1 — that was causing the off-by-one bug.
+            earned = (perfectCount || 0) >= achievement.requirement_value;
             break;
           case 'fast_completion':
             earned = timeSpent <= 30 && timeSpent > 0;

@@ -16,26 +16,28 @@ export function useSaveResult() {
 
   return useMutation({
     mutationFn: async (params: SaveResultParams) => {
-      // First, check if we have a dummy assignment for play mode, or create one
       let assignmentId = params.assignmentId;
       
       if (!assignmentId) {
-        // Check for existing play-mode assignment
-        const { data: existingAssignment } = await supabase
-          .from('assignments')
+        // For free play: find or create a dedicated "Play Mode" lesson, 
+        // then create a NEW assignment per save to avoid mixing runs
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) throw new Error('Not authenticated');
+
+        // Find existing Play Mode lesson for this teacher
+        const { data: existingLesson } = await supabase
+          .from('lessons')
           .select('id')
-          .is('class_group_id', null)
-          .is('student_profile_id', null)
+          .eq('teacher_id', user.user.id)
+          .eq('title', 'Play Mode')
           .limit(1)
           .maybeSingle();
-        
-        if (existingAssignment) {
-          assignmentId = existingAssignment.id;
+
+        let playLessonId: string;
+
+        if (existingLesson) {
+          playLessonId = existingLesson.id;
         } else {
-          // Create a lesson first for play-mode results
-          const { data: user } = await supabase.auth.getUser();
-          if (!user.user) throw new Error('Not authenticated');
-          
           const { data: lesson, error: lessonError } = await supabase
             .from('lessons')
             .insert({ title: 'Play Mode', teacher_id: user.user.id })
@@ -43,17 +45,18 @@ export function useSaveResult() {
             .single();
           
           if (lessonError) throw lessonError;
-          
-          // Create a play-mode assignment
-          const { data: newAssignment, error: assignmentError } = await supabase
-            .from('assignments')
-            .insert({ lesson_id: lesson.id })
-            .select('id')
-            .single();
-          
-          if (assignmentError) throw assignmentError;
-          assignmentId = newAssignment.id;
+          playLessonId = lesson.id;
         }
+
+        // Always create a new assignment for this play session
+        const { data: newAssignment, error: assignmentError } = await supabase
+          .from('assignments')
+          .insert({ lesson_id: playLessonId })
+          .select('id')
+          .single();
+        
+        if (assignmentError) throw assignmentError;
+        assignmentId = newAssignment.id;
       }
 
       const { data, error } = await supabase

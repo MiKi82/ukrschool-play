@@ -17,7 +17,7 @@ export const DragDropGame: React.FC<DragDropGameProps> = ({ zones, items, onComp
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
 
   const unplacedItems = items.filter(item => !placements[item.id]);
 
@@ -37,6 +37,7 @@ export const DragDropGame: React.FC<DragDropGameProps> = ({ zones, items, onComp
   };
 
   const handleRemoveFromZone = (itemId: string) => {
+    if (showResults) return; // Don't allow removal after checking
     setPlacements(prev => {
       const updated = { ...prev };
       delete updated[itemId];
@@ -57,11 +58,8 @@ export const DragDropGame: React.FC<DragDropGameProps> = ({ zones, items, onComp
     if (allPlaced) {
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
       const score = Math.floor((correctCount / items.length) * 100);
-      
-      if (correctCount === items.length) {
-        setIsComplete(true);
-        onComplete(score, timeSpent);
-      }
+      setIsComplete(true);
+      onComplete(score, timeSpent);
     }
   }, [items, placements, startTime, onComplete]);
 
@@ -69,6 +67,7 @@ export const DragDropGame: React.FC<DragDropGameProps> = ({ zones, items, onComp
     setPlacements({});
     setShowResults(false);
     setIsComplete(false);
+    setStartTime(Date.now());
   };
 
   const isItemCorrect = (itemId: string) => {

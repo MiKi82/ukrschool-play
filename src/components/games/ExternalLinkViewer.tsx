@@ -18,9 +18,12 @@ export const ExternalLinkViewer: React.FC<ExternalLinkViewerProps> = ({
 }) => {
   const [isOpened, setIsOpened] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
 
   const handleOpen = () => {
+    if (!isOpened) {
+      setStartTime(Date.now()); // Reset timer when first opening
+    }
     window.open(url, '_blank');
     setIsOpened(true);
   };

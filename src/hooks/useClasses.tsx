@@ -139,7 +139,7 @@ export const useCreateStudent = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['students', variables.classGroupId] });
       queryClient.invalidateQueries({ queryKey: ['classes'] });
-      queryClient.invalidateQueries({ queryKey: ['allStudents'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
     },
   });
 };
@@ -149,9 +149,10 @@ export const useUpdateStudent = () => {
 
   return useMutation({
     mutationFn: async ({ id, nickname, avatarEmoji, classGroupId, photoUrl }: { id: string; nickname: string; avatarEmoji: string; classGroupId: string; photoUrl?: string | null }) => {
-      const updateData: { nickname: string; avatar_emoji: string; photo_url?: string | null } = { 
+      const updateData: { nickname: string; avatar_emoji: string; class_group_id: string; photo_url?: string | null } = { 
         nickname, 
-        avatar_emoji: avatarEmoji 
+        avatar_emoji: avatarEmoji,
+        class_group_id: classGroupId,
       };
       
       if (photoUrl !== undefined) {
@@ -169,8 +170,8 @@ export const useUpdateStudent = () => {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['students', variables.classGroupId] });
-      queryClient.invalidateQueries({ queryKey: ['allStudents'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
     },
   });
 };
@@ -191,6 +192,7 @@ export const useDeleteStudent = () => {
     onSuccess: (classGroupId) => {
       queryClient.invalidateQueries({ queryKey: ['students', classGroupId] });
       queryClient.invalidateQueries({ queryKey: ['classes'] });
+      queryClient.invalidateQueries({ queryKey: ['all-students'] });
     },
   });
 };

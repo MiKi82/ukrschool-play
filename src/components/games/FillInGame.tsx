@@ -22,7 +22,7 @@ export const FillInGame: React.FC<FillInGameProps> = ({ sentences, onComplete })
   const [answers, setAnswers] = useState<Record<string, Record<number, string>>>({});
   const [showResults, setShowResults] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
 
   const handleInputChange = (sentenceId: string, blankIndex: number, value: string) => {
     setAnswers((prev) => ({
@@ -52,7 +52,7 @@ export const FillInGame: React.FC<FillInGameProps> = ({ sentences, onComplete })
       });
     });
 
-    const score = Math.round((correct / total) * 100);
+    const score = total > 0 ? Math.round((correct / total) * 100) : 0;
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     setIsComplete(true);
     onComplete(score, timeSpent);
@@ -67,17 +67,30 @@ export const FillInGame: React.FC<FillInGameProps> = ({ sentences, onComplete })
     setAnswers({});
     setShowResults(false);
     setIsComplete(false);
+    setStartTime(Date.now());
   };
 
   const renderSentence = (sentence: FillInBlank) => {
-    const parts = sentence.text.split('___');
+    // Support both "___" delimiter and "{blank}" delimiter formats
+    let parts: string[];
+    if (sentence.text.includes('___')) {
+      parts = sentence.text.split('___');
+    } else if (sentence.text.includes('{blank}')) {
+      parts = sentence.text.split('{blank}');
+    } else {
+      // Fallback: treat the whole text as one part with no blanks rendered inline
+      parts = [sentence.text];
+    }
+    
     const elements: React.ReactNode[] = [];
 
     parts.forEach((part, i) => {
       elements.push(<span key={`text-${i}`}>{part}</span>);
 
       if (i < sentence.blanks.length) {
-        const blank = sentence.blanks.find((b) => b.index === i);
+        // Find the blank that corresponds to this gap position
+        const blank = sentence.blanks.find((b) => b.index === i) 
+          || (i < sentence.blanks.length ? sentence.blanks[i] : undefined);
         if (blank) {
           const isCorrect = isBlankCorrect(sentence.id, blank);
           elements.push(
