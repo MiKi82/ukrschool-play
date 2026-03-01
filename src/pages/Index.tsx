@@ -44,12 +44,15 @@ const Index = () => {
               </div>
               <span className="text-2xl font-extrabold text-primary">ClickClass</span>
             </div>
-            <div className="flex gap-3">
-              <Button variant="ghost" asChild>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="ghost" size="sm" asChild>
                 <Link to="/auth">Увійти</Link>
               </Button>
-              <Button variant="default" asChild>
+              <Button variant="default" size="sm" asChild className="hidden sm:inline-flex">
                 <Link to="/auth">Спробувати безкоштовно</Link>
+              </Button>
+              <Button variant="default" size="sm" asChild className="sm:hidden">
+                <Link to="/auth">Старт</Link>
               </Button>
             </div>
           </div>
@@ -477,10 +480,11 @@ const Index = () => {
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             Спростіть підготовку до уроків, автоматизуйте перевірку домашніх завдань і зробіть навчання цікавішим для ваших учнів.
           </p>
-          <Button size="xl" variant="hero" asChild>
+          <Button size="lg" variant="hero" asChild className="w-full sm:w-auto">
             <Link to="/auth">
-              <Sparkles className="mr-2 h-5 w-5" />
-              Створити перший урок безкоштовно
+              <Sparkles className="mr-2 h-5 w-5 shrink-0" />
+              <span className="hidden sm:inline">Створити перший урок безкоштовно</span>
+              <span className="sm:hidden">Створити урок безкоштовно</span>
             </Link>
           </Button>
           <p className="text-sm text-muted-foreground mt-4">Швидкий старт. Без зайвих налаштувань.</p>
