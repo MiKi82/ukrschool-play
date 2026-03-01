@@ -326,8 +326,8 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="lesson" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="lesson" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
             <TabsTrigger value="lesson" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               Урок ({exercises.length})
@@ -339,7 +339,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
           </TabsList>
 
           {/* Lesson Tab */}
-          <TabsContent value="lesson" className="flex-1 overflow-y-auto space-y-6 py-4">
+          <TabsContent value="lesson" className="flex-1 min-h-0 overflow-y-auto space-y-6 py-4 pr-1">
             {/* Lesson Title */}
             <div className="space-y-2">
               <Label htmlFor="lessonTitle">Назва уроку</Label>
@@ -486,7 +486,7 @@ const LessonBuilder: React.FC<LessonBuilderProps> = ({ open, onClose, initialExe
           </TabsContent>
 
           {/* Library Tab */}
-          <TabsContent value="library" className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
+          <TabsContent value="library" className="flex-1 min-h-0 overflow-hidden flex flex-col space-y-4 py-4">
             {/* Search and Filter */}
             <div className="flex gap-3">
               <div className="relative flex-1">
